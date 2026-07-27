@@ -18,17 +18,17 @@ configuration and no real campaign data.
 
 ## Screenshots
 
-<!--
-  TODO(Tom): drop real screenshots into docs/ and they'll render here.
-  Suggested captures (see docs/README-screenshots.md for exact steps):
-    docs/map.png          — the map/atlas with the hex grid + a town open
-    docs/npc-tool.png     — an NPC sheet or monster stat block
-    docs/character.png    — the character-creation sheet
--->
+**Regional atlas** — searchable locations, per-town visibility, and a zoomable world map.
 
-| Map / atlas | NPC & monster tool | Character creation |
-| :---: | :---: | :---: |
-| ![Map tool](docs/map.png) | ![NPC tool](docs/npc-tool.png) | ![Character sheet](docs/character.png) |
+![Regional atlas](docs/atlas.png)
+
+**Town map** — hex grid, household registry, and docked initiative/attacks panels for combat.
+
+![Town map](docs/map_tool.png)
+
+| NPC & monster tool | Character / content creation |
+| :---: | :---: |
+| ![NPC tool](docs/npc_tool.png) | ![Creation tool](docs/creation.png) |
 
 ## Features
 
