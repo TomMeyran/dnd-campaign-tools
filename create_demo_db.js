@@ -5,7 +5,7 @@ const initSqlJs = require('sql.js');
 const path = require('path');
 const fs   = require('fs');
 
-const DB_FILE = path.join(__dirname, 'map tool', 'map_data.db');
+const DB_FILE = path.join(__dirname, 'map_tool', 'map_data.db');
 
 const millhavenHouseholds = [
   { id: 1, name: 'The Golden Flagon', residents: 0, npcs: [], desc: 'The town\'s main inn and tavern.' },

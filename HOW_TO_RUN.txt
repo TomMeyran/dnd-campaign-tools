@@ -32,6 +32,6 @@ DEMO DATABASE
     - Millhaven (town with 10 NPCs)
     - Thorngate (town with 10 NPCs)
 
-  The database is stored in:  map tool/map_data.db
+  The database is stored in:  map_tool/map_data.db
   It is updated automatically while the server runs.
   To reset to the original demo data, run:  node create_demo_db.js

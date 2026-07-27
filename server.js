@@ -9,8 +9,8 @@ const { PORT, DISCORD_BOT_SECRET, DM_KEY } = require('./specificUser');
 const BOT_SECRET = DISCORD_BOT_SECRET || '';
 const DM_KEY_VALUE = DM_KEY || '';
 
-// DB lives next to the map tool content so existing game state is preserved.
-const DB_FILE  = path.join(__dirname, 'map tool', 'map_data.db');
+// DB lives next to the map_tool content so existing game state is preserved.
+const DB_FILE  = path.join(__dirname, 'map_tool', 'map_data.db');
 
 // NPC images are stored in npcs/images/
 const IMAGES_DIR = path.join(__dirname, 'npcs', 'images');
@@ -20,8 +20,8 @@ if (!fs.existsSync(IMAGES_DIR)) fs.mkdirSync(IMAGES_DIR, { recursive: true });
 const ATTACH_DIR = path.join(__dirname, 'npcs', 'attachments');
 if (!fs.existsSync(ATTACH_DIR)) fs.mkdirSync(ATTACH_DIR, { recursive: true });
 
-// Location map images go into map tool/locations/
-const LOCATIONS_IMG_DIR = path.join(__dirname, 'map tool', 'locations');
+// Location map images go into map_tool/locations/
+const LOCATIONS_IMG_DIR = path.join(__dirname, 'map_tool', 'locations');
 if (!fs.existsSync(LOCATIONS_IMG_DIR)) fs.mkdirSync(LOCATIONS_IMG_DIR, { recursive: true });
 
 const app    = express();
@@ -1919,7 +1919,7 @@ function scheduleReload() {
     broadcastEverywhere({ type: 'dr-reload' });
   }, 300);
 }
-const WATCH_DIRS = [__dirname, path.join(__dirname, 'map tool'), path.join(__dirname, 'npcs')];
+const WATCH_DIRS = [__dirname, path.join(__dirname, 'map_tool'), path.join(__dirname, 'npcs')];
 for (const dir of WATCH_DIRS) {
   try {
     if (!fs.existsSync(dir)) continue;
@@ -1996,11 +1996,11 @@ function deleteImageFile(imageUrl) {
   const basename = path.basename(rel);
   // Never touch files that weren't created by this tool  originals are protected
   if (!basename.startsWith('temp_')) return;
-  // Try both the web root and the map tool subfolder (for location images)
+  // Try both the web root and the map_tool subfolder (for location images)
   const allowed = __dirname + path.sep;
   [
     path.join(__dirname, rel),
-    path.join(__dirname, 'map tool', rel)
+    path.join(__dirname, 'map_tool', rel)
   ].forEach(full => {
     const resolved = path.resolve(full);
     if (!resolved.startsWith(allowed)) return;
@@ -2067,7 +2067,7 @@ app.use((req, res, next) => {
 // Block player access to DM content files  case-insensitive so Windows NTFS
 // case folding can't bypass the check (e.g. /Content/ or /CONTENT/).
 app.use((req, res, next) => {
-  if (/^\/content\b/i.test(req.path) || /^\/map tool\/content\b/i.test(req.path))
+  if (/^\/content\b/i.test(req.path) || /^\/map_tool\/content\b/i.test(req.path))
     return res.status(403).end();
   next();
 });
@@ -2089,7 +2089,7 @@ function imgHeaders(res, filePath) {
 
 // Serve map tool files at root so existing URLs (/nocropi.html, /map_tool.html,
 // /locations/xxx.png, /content/ etc.) keep working unchanged.
-app.use(express.static(path.join(__dirname, 'map tool'), { setHeaders: imgHeaders }));
+app.use(express.static(path.join(__dirname, 'map_tool'), { setHeaders: imgHeaders }));
 
 // Serve everything else from the app root (covers /npcs/, /specificUser.js, etc.)
 app.use(express.static(__dirname, { setHeaders: imgHeaders }));
