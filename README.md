@@ -52,6 +52,30 @@ To reset the demo data at any time, run `node create_demo_db.js`.
 
 See [HOW_TO_RUN.txt](HOW_TO_RUN.txt) for more detail.
 
+## Optional: exposing the demo to remote players
+
+Out of the box the server is **local only** — no tunnel is required and none is
+bundled. If you want players to reach it over the internet, run any HTTP
+tunnel that points at `http://localhost:3000`; the app is tunnel-agnostic and
+serves player links from whatever public URL you give it. Options:
+
+| Tool | Command | Account needed |
+| --- | --- | --- |
+| Cloudflare Tunnel | `cloudflared tunnel --url http://localhost:3000` | No (random `*.trycloudflare.com` URL) |
+| ngrok | `ngrok http 3000` | Yes (free tier + authtoken) |
+| localtunnel | `npx localtunnel --port 3000` | No |
+
+The tunnel binary itself is **not** included in this repo — download it from its
+own project. The server treats the DM as anyone connecting from `localhost` and
+everyone arriving through the tunnel as a player. Optionally, tell the app its
+public URL so player links use it instead of `localhost`:
+
+```bash
+curl -X POST http://localhost:3000/api/tunnel-url \
+  -H "Content-Type: application/json" \
+  -d "{\"url\": \"https://<your-public-url>\"}"
+```
+
 ## Notes
 
 - The demo runs locally only; there is no player-facing remote tunnel in this
