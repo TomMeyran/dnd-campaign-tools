@@ -26,4 +26,4 @@ Desktop.ini
 # Ignore databases by default, but KEEP the demo DB so the project runs out of
 # the box. Regenerate it any time with:  node create_demo_db.js
 *.db
-!nocropi map tool/map_data.db
+!map tool/map_data.db
