@@ -1,0 +1,4403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NPC Registry</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
+
+<!-- Town data is loaded from the server DB via /api/town/:town -->
+
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+/* On-map label face for the party marker (served locally; same as the atlas). */
+@font-face {
+  font-family: 'Tribal Garamond';
+  src: url('TribalGaramond.ttf') format('truetype');
+  font-weight: normal; font-style: normal; font-display: swap;
+}
+
+:root {
+  --ink: #1a1208;
+  --ink2: #3d2e10;
+  --ink3: #6b5230;
+  --parchment: #f2e8cc;
+  --parchment2: #e8d9b0;
+  --parchment3: #dcc98a;
+  --gold: #b8860b;
+  --gold2: #d4a017;
+  --accent: #5c3a1e;
+  --water: #4a7fa5;
+  --water2: #6ba3c4;
+  --green: #3d6b2e;
+  --red: #8b2020;
+  --shadow: rgba(26,18,8,0.15);
+}
+
+body {
+  background: #1c1408;
+  font-family: 'Crimson Pro', serif;
+  color: var(--ink);
+  min-height: 100vh;
+}
+
+/* ── HEADER ── */
+.site-header {
+  background: #0e0a04;
+  border-bottom: 2px solid var(--gold);
+  padding: 1.2rem 2rem;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.site-title {
+  font-family: 'Cinzel', serif;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--gold2);
+  letter-spacing: 0.06em;
+}
+
+.site-subtitle {
+  font-family: 'Crimson Pro', serif;
+  font-style: italic;
+  color: #a08040;
+  font-size: 0.95rem;
+}
+
+.header-stats {
+  margin-left: auto;
+  display: flex;
+  gap: 1.5rem;
+}
+
+.hstat { text-align: center; }
+
+.hstat-num {
+  font-family: 'Cinzel', serif;
+  font-size: 1.2rem;
+  color: var(--gold2);
+  display: block;
+}
+
+.hstat-label {
+  font-size: 0.72rem;
+  color: #806030;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* ── LAYOUT ── */
+.app {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  min-height: calc(100vh - 70px);
+}
+
+/* ── SIDEBAR ── */
+.sidebar {
+  background: #110e06;
+  border-right: 1px solid #3a2a0a;
+  overflow-y: auto;
+  padding: 1rem 0;
+  max-height: calc(100vh - 70px);
+  position: sticky;
+  top: 70px;
+}
+
+.sidebar-section {
+  padding: 0.5rem 1rem 0.3rem;
+  font-family: 'Cinzel', serif;
+  font-size: 0.65rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: #604a20;
+}
+
+.house-btn {
+  width: 100%;
+  background: none;
+  border: none;
+  border-left: 3px solid transparent;
+  padding: 0.6rem 1.2rem 0.6rem 1rem;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+
+.house-btn:hover { background: rgba(180,130,20,0.08); }
+
+.house-btn.active {
+  background: rgba(180,130,20,0.14);
+  border-left-color: var(--gold2);
+}
+
+.hb-num {
+  font-family: 'Cinzel', serif;
+  font-size: 0.7rem;
+  color: #604a20;
+  min-width: 22px;
+  padding-top: 2px;
+}
+
+.hb-name {
+  font-family: 'Cinzel', serif;
+  font-size: 0.82rem;
+  color: #c8a040;
+  display: block;
+  line-height: 1.2;
+}
+
+.hb-detail {
+  font-size: 0.75rem;
+  color: #705a30;
+  font-style: italic;
+  display: block;
+}
+
+/* sidebar player-hidden dim (DM mode only) */
+.house-btn.sb-hidden .hb-name   { color: #5a4425; }
+.house-btn.sb-hidden .hb-detail { color: #3e2e18; }
+.house-btn.sb-hidden .hb-num    { color: #3e2e18; }
+
+.sb-row { display: flex; align-items: stretch; }
+.sb-row .house-btn { flex: 1; min-width: 0; }
+
+.house-remove-btn {
+  background: none;
+  border: none;
+  color: #5a3010;
+  padding: 0 0.55rem;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+.sb-row:hover .house-remove-btn { opacity: 1; }
+.house-remove-btn:hover { color: #c04020; }
+
+.sb-loc-section {
+  border-top: 1px solid #1e1608;
+  margin-top: 0.3rem;
+  padding-top: 0.55rem;
+}
+
+.loc-sb-item {
+  padding: 0.38rem 1.2rem 0.38rem 1rem;
+  display: flex;
+  align-items: center;
+  border-left: 3px solid transparent;
+  transition: background 0.15s, border-color 0.15s;
+  cursor: pointer;
+}
+.loc-sb-item:hover { background: rgba(160,128,64,0.1); }
+.loc-sb-item.active { background: rgba(180,130,20,0.14); border-left-color: var(--gold2); }
+.loc-sb-item .ls-remove {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: #7a5030;
+  font-size: 0.85rem;
+  cursor: pointer;
+  opacity: 0;
+  padding: 0 2px;
+  line-height: 1;
+  transition: opacity 0.15s, color 0.15s;
+}
+.loc-sb-item:hover .ls-remove { opacity: 1; }
+.loc-sb-item .ls-remove:hover { color: #c04020; }
+
+.loc-sb-item .ls-name {
+  font-family: 'Cinzel', serif;
+  font-size: 0.78rem;
+  color: #a08040;
+  font-style: italic;
+}
+
+.loc-sb-item.loc-search-highlight {
+  background: rgba(180,130,20,0.14);
+  border-left-color: var(--gold2);
+}
+
+/* ── MAIN CONTENT ── */
+.main {
+  background: #1c1408;
+  overflow-y: auto;
+  padding: 2rem 1rem;
+}
+
+/* ── HOUSE CARD ── */
+.house-card {
+  background: var(--parchment);
+  border-radius: 4px;
+  box-shadow: 0 4px 30px rgba(0,0,0,0.5), inset 0 0 60px rgba(139,105,20,0.06);
+  margin-bottom: 0.5rem;
+  overflow: hidden;
+}
+
+.house-header {
+  background: var(--accent);
+  padding: 1rem 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.house-header:hover { background: #6d4525; }
+
+/* DM mode: dim house header when hidden from players */
+.house-card.dm-hidden .house-header { background: #4d2a15; }
+.house-card.dm-hidden .house-header:hover { background: var(--accent); }
+
+.hh-num {
+  font-family: 'Cinzel', serif;
+  font-size: 0.75rem;
+  color: #c8a060;
+  min-width: 30px;
+}
+
+.hh-name {
+  font-family: 'Cinzel', serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--parchment);
+  flex: 1;
+}
+
+.hh-location {
+  font-style: italic;
+  font-size: 0.82rem;
+  color: #c8a060;
+  flex: 1;
+}
+
+.hh-count {
+  font-family: 'Cinzel', serif;
+  font-size: 0.78rem;
+  color: #c8a060;
+}
+
+.hh-toggle {
+  color: #c8a060;
+  font-size: 1rem;
+  transition: transform 0.2s;
+}
+
+.house-body {
+  padding: 1.5rem;
+  border-top: 2px solid var(--parchment3);
+  display: none;
+}
+
+.house-body.open { display: block; }
+
+.house-desc {
+  font-style: italic;
+  color: var(--ink3);
+  font-size: 0.95rem;
+  margin-bottom: 1.2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--parchment3);
+  line-height: 1.7;
+}
+
+/* ── NPC GRID ── */
+.npc-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  align-items: start;
+  gap: 1rem;
+}
+
+/* ── NPC CARD ── */
+.npc-card {
+  background: #faf3df;
+  border: 1px solid var(--parchment3);
+  border-radius: 3px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: box-shadow 0.15s;
+}
+
+.npc-card:hover { box-shadow: 0 3px 14px var(--shadow); }
+
+/* DM mode: dim NPC card when hidden from players */
+.npc-card.dm-hidden {
+  border-left: 2px solid rgba(160,50,50,0.45);
+  opacity: 0.75;
+}
+
+.npc-card-header {
+  padding: 0.65rem 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.npc-portrait-thumb {
+  width: 34px; height: 34px;
+  border-radius: 4px;
+  object-fit: cover;
+  border: 1px solid var(--parchment3);
+  cursor: zoom-in;
+  flex-shrink: 0;
+  transition: border-color 0.12s;
+}
+.npc-portrait-thumb:hover { border-color: var(--ink3); }
+
+/* ── NPC portrait zoom modal ── */
+.npc-zoom-modal { position: fixed; inset: 0; z-index: 2000; display: flex; align-items: center; justify-content: center; }
+.npc-zoom-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.72); }
+.npc-zoom-window { position: relative; background: #1a1208; border: 1px solid var(--parchment3); border-radius: 6px; box-shadow: 0 16px 60px rgba(0,0,0,0.85); display: flex; flex-direction: column; max-width: 90vw; max-height: 88vh; width: 680px; }
+.npc-zoom-titlebar { display: flex; align-items: center; gap: 0.6rem; padding: 0.5rem 0.75rem; background: #0f0c06; border-bottom: 1px solid var(--parchment3); flex-shrink: 0; }
+.npc-zoom-title { font-family: 'Cinzel', serif; font-size: 0.72rem; color: var(--ink); flex: 1; letter-spacing: 0.08em; }
+.npc-zoom-close { background: none; border: none; color: var(--ink3); cursor: pointer; font-size: 0.9rem; padding: 2px 6px; border-radius: 2px; transition: color 0.12s; line-height: 1; }
+.npc-zoom-close:hover { color: var(--ink); }
+.npc-zoom-controls { display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.75rem; background: rgba(0,0,0,0.15); border-bottom: 1px solid var(--parchment3); flex-shrink: 0; }
+.npc-zoom-pct { font-family: 'Cinzel', serif; font-size: 0.7rem; color: var(--ink2); min-width: 38px; text-align: center; }
+.npc-zoom-slider { flex: 1; accent-color: var(--ink3); cursor: pointer; }
+.npc-zoom-step { background: var(--parchment2); border: 1px solid var(--parchment3); color: var(--ink2); font-family: 'Cinzel', serif; font-size: 0.8rem; width: 26px; height: 26px; border-radius: 3px; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; transition: background 0.12s; flex-shrink: 0; }
+.npc-zoom-step:hover { background: var(--parchment3); }
+.npc-zoom-viewport { overflow: auto; flex: 1; display: flex; align-items: flex-start; justify-content: flex-start; padding: 1rem; min-height: 0; }
+.npc-zoom-img { display: block; transition: width 0.15s, height 0.15s; }
+
+.race-badge {
+  font-family: 'Cinzel', serif;
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  padding: 2px 6px;
+  border-radius: 2px;
+  text-transform: uppercase;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.npc-name-block { flex: 1; }
+
+.npc-name {
+  font-family: 'Cinzel', serif;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--ink);
+  display: block;
+}
+
+.npc-role {
+  font-size: 0.78rem;
+  color: var(--ink3);
+  font-style: italic;
+  display: block;
+}
+.npc-role[contenteditable]:focus {
+  outline: none;
+  border-bottom: 1px dashed var(--ink3);
+  font-style: normal;
+}
+.npc-role[contenteditable]:empty::before {
+  content: 'profession…';
+  color: var(--ink4, #bbb);
+  font-style: italic;
+}
+
+.npc-age {
+  font-family: 'Cinzel', serif;
+  font-size: 0.68rem;
+  color: var(--ink3);
+}
+
+.npc-card-body {
+  padding: 0 0.9rem 0.8rem;
+  display: none;
+}
+
+.npc-card-body.open { display: block; }
+
+.npc-divider {
+  border: none;
+  border-top: 1px solid var(--parchment3);
+  margin: 0.6rem 0;
+}
+
+.npc-backstory {
+  font-size: 0.83rem;
+  line-height: 1.65;
+  color: var(--ink2);
+  font-style: italic;
+}
+
+/* ── NPC SECTION DIVIDERS (DM mode) ── */
+.npc-section {
+  border-radius: 3px;
+  padding: 0.4rem 0.55rem 0.15rem;
+  margin-bottom: 0.45rem;
+}
+.npc-section-label {
+  font-family: 'Cinzel', serif;
+  font-size: 0.57rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 0.4rem;
+  padding-bottom: 0.2rem;
+  border-bottom: 1px solid currentColor;
+  opacity: 0.7;
+}
+.player-section {
+  background: rgba(50,130,70,0.07);
+  border: 1px solid rgba(50,130,70,0.28);
+}
+.player-section .npc-section-label { color: #4a8a5a; }
+.dm-section {
+  background: rgba(160,60,20,0.07);
+  border: 1px solid rgba(160,60,20,0.28);
+}
+.dm-section .npc-section-label { color: #b05030; }
+
+/* ── INLINE EDIT FIELDS ── */
+.npc-edit-field {
+  width: 100%;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--ink2);
+  font-family: 'Crimson Pro', serif;
+  font-size: 0.83rem;
+  line-height: 1.5;
+  padding: 1px 3px;
+  border-radius: 2px;
+  resize: none;
+  overflow: hidden;
+  box-sizing: border-box;
+  transition: border-color 0.12s, background 0.12s;
+}
+textarea.npc-edit-field {
+  field-sizing: content;
+  min-height: calc(1.5em + 4px);
+}
+.npc-edit-field:hover { border-color: rgba(100,80,40,0.3); background: rgba(255,255,240,0.55); }
+.npc-edit-field:focus { outline: none; border-color: rgba(180,140,60,0.65); background: rgba(255,252,230,0.85); }
+input.npc-edit-field { height: 1.7em; }
+
+/* ── FIELD LABEL TEXTAREA (rename) ── */
+.npc-field-label {
+  font-family: 'Cinzel', serif;
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink3);
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 1px 3px;
+  border-radius: 2px;
+  width: 100%;
+  box-sizing: border-box;
+  resize: none;
+  overflow: hidden;
+  min-height: calc(1.5em + 4px);
+  transition: border-color 0.12s, background 0.12s;
+}
+.npc-field-label:hover { border-color: rgba(100,80,40,0.3); background: rgba(255,255,240,0.4); }
+.npc-field-label:focus { outline: none; border-color: rgba(180,140,60,0.65); background: rgba(255,252,230,0.75); }
+
+/* ── REMOVE FIELD BUTTON ── */
+.npc-field-remove {
+  background: none;
+  border: none;
+  color: var(--ink3);
+  cursor: pointer;
+  font-size: 0.7rem;
+  padding: 2px 5px;
+  opacity: 0.35;
+  transition: opacity 0.12s, color 0.12s;
+  align-self: start;
+  margin-top: 2px;
+}
+.npc-field-remove:hover { opacity: 1; color: var(--red); }
+
+/* ── RACE COLORS ── */
+.race-human     { background: #d4c4a0; color: #3d2e10; }
+.race-highelf   { background: #c8d4e8; color: #1a2840; }
+.race-woodelf   { background: #b8d4a0; color: #1a3010; }
+.race-halfelf   { background: #d4c8e0; color: #2a1840; }
+.race-halforc   { background: #b8c8a0; color: #1a2810; }
+.race-dwarf     { background: #c8b898; color: #3d2010; }
+.race-halfling  { background: #e8d4b0; color: #3d2800; }
+.race-gnome     { background: #d4e8c8; color: #1a3018; }
+.race-goliath   { background: #c0c8d8; color: #101828; }
+.race-dragonborn{ background: #d8b8b0; color: #381010; }
+.race-tiefling  { background: #c8b0d0; color: #280830; }
+.race-owlbear   { background: #b8a888; color: #2a1a00; }
+.race-beast     { background: #c0b890; color: #281800; }
+.race-construct { background: #b8c8c8; color: #102020; }
+.race-undead    { background: #b0b8a0; color: #101808; }
+.loc-badge      { background: #c07020; color: #fff; }
+
+/* ── EMPTY STATE ── */
+.empty-state {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: #604a20;
+}
+
+.empty-state h2 {
+  font-family: 'Cinzel', serif;
+  font-size: 1.2rem;
+  color: var(--gold);
+  margin-bottom: 0.5rem;
+}
+
+
+/* ── MAP PANEL ── */
+.map-panel {
+  background: #110e06;
+  border: 1px solid var(--parchment3);
+  border-radius: 6px;
+  margin-bottom: 1.5rem;
+  overflow: hidden;
+}
+
+.map-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  background: #0e0a04;
+  color: var(--gold2);
+  font-family: 'Cinzel', serif;
+  letter-spacing: 0.08em;
+}
+
+.map-frame {
+  position: relative;
+  width: 100%;
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+/* ── HEX GRID OVERLAY (imported from the atlas) ─────────────────
+   Animated honeycomb drawn over the map image but beneath the markers.
+   Stroke pulses black → red over 10s. */
+#hex-grid-overlay {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 5;
+  opacity: 0.55;
+}
+#hex-grid-overlay.hidden { display: none; }
+#hex-grid-overlay path { animation: hex-grid-color 10s ease-in-out infinite alternate; }
+@keyframes hex-grid-color { from { stroke: #000000; } to { stroke: #e01818; } }
+/* Hex Grid control popover (hover/focus, like the atlas cell-size box) */
+.hexgrid-popover {
+  position: absolute; top: 100%; left: 0; margin-top: 4px; min-width: 150px;
+  background: #1c1206; border: 1px solid var(--seal-gold, #c8922a); border-radius: 4px;
+  padding: 8px 10px; box-shadow: 0 6px 18px rgba(0,0,0,.55); z-index: 60; display: none;
+}
+#hexGridWrap:hover .hexgrid-popover, #hexGridWrap:focus-within .hexgrid-popover { display: block; }
+.hexgrid-popover label { display: block; font-family: 'Cinzel', serif; font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: #c8922a; margin-bottom: 4px; }
+.hexgrid-popover input { width: 100%; background: #0e0a04; border: 1px solid #4a3a18; color: #f2e8cc; font-family: 'Cinzel', serif; font-size: 13px; padding: 4px 6px; border-radius: 3px; outline: none; }
+.hexgrid-popover input:focus { border-color: var(--seal-gold, #c8922a); }
+.hexgrid-hint { margin-top: 5px; font-size: 9px; font-style: italic; color: #8a744a; }
+.house-map-btn.hexgrid-on { background: var(--seal-red, #8b2020); color: #fff; }
+.map-frame.map-no-image {
+  min-height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-image: none !important;
+  border: 2px dashed rgba(180,130,20,0.25);
+  border-radius: 4px;
+}
+.map-frame.map-no-image::after {
+  content: 'No map image — use the ▾ menu above to add one';
+  font-family: 'Cinzel', serif;
+  font-size: 0.82rem;
+  font-style: italic;
+  color: var(--ink3);
+  letter-spacing: 0.04em;
+  pointer-events: none;
+}
+
+.map-panel.edit-mode,
+.map-panel.placement-mode {
+  outline: 2px dashed rgba(212,160,23,0.75);
+}
+
+.map-panel.placement-mode { cursor: crosshair; }
+.map-panel.placement-mode .map-marker:not(.ghost) { pointer-events: none; }
+
+#placement-banner {
+  display: none;
+  background: #0e0a04;
+  color: #c8a040;
+  font-family: 'Cinzel', serif;
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+  padding: 0.4rem 1.5rem;
+  text-align: center;
+  border-top: 1px solid rgba(200,160,64,0.25);
+}
+.map-panel.placement-mode #placement-banner { display: block; }
+
+.map-marker.ghost {
+  opacity: 0.6;
+  pointer-events: none;
+  cursor: none;
+}
+
+.map-marker.editable { cursor: move; }
+
+.map-marker.dragging {
+  transform: translate(-50%, -50%) scale(1.35);
+}
+
+.map-marker {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #d43f3f;
+  border: 2px solid #fff;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  transition: transform 0.15s, opacity 0.15s;
+}
+
+/* ── MAP TOKENS ── portrait tokens placed on the map, sized to N hex cells. Positioned by
+   %; centred with translate(-50%,-50%). Live moves animate left/top on a transition (a
+   discrete per-move event, cheap). will-change keeps them on their own compositor layer. */
+.map-token {
+  position: absolute;
+  /* ── WHY TOKENS SIT ON THE GRID (the "tokens don't match the grid" fix) ──────────────────
+     Symptom: a placed token was fine horizontally but sat a bit TOO HIGH — a small, constant
+     vertical shift up, on every token regardless of cell or grid size.
+
+     What I tried first (and why it DIDN'T work): I assumed the bug was in the coordinate math
+     — that hexToPixel/hexToPct were computing the wrong cell centre. I "fixed" the hex geometry,
+     added a ResizeObserver for layout timing, then anchored the grid to the image's contain-fit
+     box (mapImageBox). None of it removed the shift, because the math was already correct: a
+     pixel probe showed all six vertices of the first-row hex land exactly on the drawn grid
+     lines. I was fixing the wrong layer.
+
+     The ACTUAL cause was here, in CSS. This element used `display:flex; flex-direction:column`
+     and contained the hexagon PLUS the name label stacked beneath it. `translate(-50%,-50%)`
+     centres the WHOLE box on the cell — so it centred the hex+label COLUMN, not the hexagon.
+     With the label below the hex, the column's centre falls below the hex's centre, which pushes
+     the hexagon UP by ~half the label's height (≈7.5px). The label is horizontally centred, so
+     x was never affected — exactly matching "ok horizontally, a bit too high".
+
+     What works now (and why): the token box is EXACTLY the hexagon — no flex column. The name
+     label is taken out of flow (position:absolute, top:100%, see .map-token-name), so it no
+     longer contributes to the box's height. `translate(-50%,-50%)` now centres the HEXAGON on
+     the cell. Measured shift went from −7.5px to 0.0px. */
+  transform: translate(-50%, -50%);
+  z-index: 20;
+  touch-action: none; user-select: none;
+  will-change: left, top;
+}
+/* Tokens are HEXAGONAL (pointy-top, matching the hex grid). Structure: .map-token-hex is a
+   hexagon-clipped backing tinted the ring colour (gold, or blue when controllable); the
+   portrait (.map-token-img) is a slightly-inset hexagon on top, so the backing shows as a
+   coloured border all the way round. A drop-shadow gives the drop shadow (follows the clip). */
+.map-token-hex {
+  position: relative;
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  background: #f0d68a;                               /* the ring colour (gold by default) */
+  filter: drop-shadow(0 2px 5px rgba(0,0,0,0.7));
+}
+.map-token .map-token-img {
+  position: absolute; inset: 2px;                    /* 2px inset reveals the backing as a ring */
+  width: calc(100% - 4px); height: calc(100% - 4px);
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  object-fit: cover;
+  background: #2a1e0c;
+  display: block;
+}
+.map-token .map-token-noimg {
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Cinzel', serif; font-weight: 700; color: #f0d68a;
+  font-size: 1.4rem;
+}
+.map-token .map-token-name {
+  /* Absolutely positioned just under the hex, centred, and OUT of the box's flow so it doesn't
+     shift the hexagon's centre off the cell. */
+  position: absolute;
+  top: 100%; left: 50%; transform: translateX(-50%);
+  margin-top: 3px;
+  font-family: 'Cinzel', serif; font-size: 10px; font-weight: 600; letter-spacing: .04em;
+  color: #ffe6a8; text-shadow: 0 0 3px #000, 0 0 6px #000;
+  white-space: nowrap; pointer-events: none;
+  max-width: 140px; overflow: hidden; text-overflow: ellipsis;
+}
+.map-token.token-movable { cursor: grab; }
+.map-token.token-movable .map-token-hex { background: #9fd0ff; }   /* controllable → blue ring */
+.map-token.token-dragging { cursor: grabbing; z-index: 40; }
+.map-token.token-dragging .map-token-hex { filter: drop-shadow(0 0 4px #9fd0ff) drop-shadow(0 4px 10px rgba(0,0,0,0.8)); }
+.map-token .map-token-resize {
+  /* Anchored to the hex box's lower-right (the box is now just the hexagon). */
+  position: absolute; right: -4px; bottom: -4px; width: 14px; height: 14px;
+  border-radius: 50%; background: #9fd0ff; border: 2px solid #17110a;
+  cursor: nwse-resize; box-shadow: 0 1px 3px rgba(0,0,0,.6);
+}
+/* Token picker modal */
+#tokenPickerModal { position: fixed; inset: 0; z-index: 9000; display: flex; align-items: center; justify-content: center; }
+.tkp-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.6); }
+.tkp-window { position: relative; width: min(520px, 92vw); max-height: 82vh; display: flex; flex-direction: column; background: #17110a; border: 1px solid #4a3410; border-radius: 8px; box-shadow: 0 12px 48px rgba(0,0,0,.6); }
+.tkp-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid #4a3410; font-family: 'Cinzel', serif; color: #f0d68a; }
+.tkp-close { background: none; border: none; color: #a88a4a; font-size: 1.1rem; cursor: pointer; }
+.tkp-search { margin: 12px 16px 6px; padding: 7px 10px; background: #0e0a04; border: 1px solid #4a3410; color: #f2e8cc; border-radius: 4px; font-family: 'Crimson Pro', serif; font-size: 0.9rem; }
+.tkp-list { overflow-y: auto; padding: 4px 8px 8px; display: flex; flex-direction: column; gap: 3px; }
+.tkp-item { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 4px; cursor: pointer; color: #e8d9b0; font-family: 'Crimson Pro', serif; }
+.tkp-item:hover { background: rgba(200,146,42,.14); }
+.tkp-item img, .tkp-item .tkp-noimg { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; border: 1px solid #6a4a10; background: #2a1e0c; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-family: 'Cinzel', serif; color: #f0d68a; }
+.tkp-item-name { font-size: 0.9rem; }
+.tkp-item-sub { font-size: 0.72rem; color: #9a8a5a; }
+.tkp-item.placed .tkp-item-name::after { content: ' ✓ on this map'; color: #7fc27f; font-size: 0.7rem; font-style: italic; }
+.tkp-hint { padding: 8px 16px 12px; font-size: 0.72rem; font-style: italic; color: #8a744a; }
+
+.map-panel:not(.edit-mode):not(.placement-mode) .map-marker {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.map-panel:not(.edit-mode):not(.placement-mode) .map-marker.active {
+  box-shadow: none;
+}
+
+.map-marker.active {
+  transform: translate(-50%, -50%) scale(1.25);
+  box-shadow: 0 0 0 6px rgba(212,160,23,0.25);
+}
+
+.map-label {
+  position: absolute;
+  left: 50%;
+  top: -22px;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  background: rgba(14, 10, 4, 0.95);
+  color: var(--gold2);
+  font-family: 'Cinzel', serif;
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  padding: 3px 6px;
+  border-radius: 3px;
+  opacity: 0;
+  pointer-events: auto;
+  transition: opacity 0.15s;
+}
+
+.map-label.visible { opacity: 1; }
+
+#map-tooltip {
+  position: fixed;
+  background: rgba(14, 10, 4, 0.95);
+  color: var(--gold2);
+  font-family: 'Cinzel', serif;
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  padding: 4px 9px;
+  border-radius: 3px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s;
+  z-index: 500;
+  white-space: nowrap;
+}
+#map-tooltip.visible { opacity: 1; }
+
+/* ── TOWN LOCATION LABELS ── */
+.map-loc-label {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-family: 'Cinzel', serif;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  color: #e8c96a;
+  text-shadow: 0 0 4px rgba(0,0,0,1), 0 0 10px rgba(0,0,0,0.8), 1px 1px 0 rgba(0,0,0,0.9);
+  pointer-events: none;
+  user-select: none;
+  white-space: nowrap;
+  z-index: 5;
+}
+.map-loc-label.editable {
+  pointer-events: all;
+  cursor: move;
+  outline: 1px dashed rgba(212,160,23,0.5);
+  padding: 2px 4px;
+}
+.map-loc-label.dragging { opacity: 0.6; }
+.map-loc-label.loc-active {
+  outline: 2px solid var(--gold2, #c8a020);
+  background: rgba(200,160,20,0.25);
+  border-radius: 2px;
+}
+.map-loc-label.unpositioned {
+  background: rgba(14,10,4,0.85);
+  padding: 2px 6px;
+  border-radius: 2px;
+  border: 1px dashed rgba(212,160,23,0.4);
+}
+
+/* DM mode: dim marker for houses hidden from players */
+.map-marker.mk-hidden {
+  background: #555 !important;
+  border-color: #888 !important;
+  opacity: 0.4;
+}
+
+.map-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: nowrap;
+}
+
+/* ── SEARCH ── */
+.search-wrapper {
+  position: relative;
+  min-width: 260px;
+}
+
+.map-search {
+  width: 100%;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(212,160,23,0.25);
+  color: var(--gold2);
+  font-family: 'Cinzel', serif;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  padding: 0.45rem 0.65rem;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
+.map-search:focus {
+  outline: none;
+  border-color: rgba(212,160,23,0.55);
+}
+
+.map-search.has-results { border-color: rgba(46,140,100,0.7); }
+.map-search.no-results  { border-color: rgba(180,40,40,0.7); }
+
+/* ── DROPDOWN ── */
+.search-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #110e06;
+  border: 1px solid rgba(212,160,23,0.4);
+  border-radius: 4px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.7);
+  z-index: 200;
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+.search-dropdown.open { display: block; }
+
+.dd-item {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.5rem 0.8rem;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(212,160,23,0.1);
+  transition: background 0.1s;
+}
+
+.dd-item:last-child { border-bottom: none; }
+
+.dd-item:hover,
+.dd-item.focused { background: rgba(212,160,23,0.12); }
+
+.dd-name {
+  font-family: 'Cinzel', serif;
+  font-size: 0.8rem;
+  color: var(--gold2);
+  flex: 1;
+}
+
+.dd-name mark {
+  background: #ffe066;
+  color: #1a1208;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+.dd-sub {
+  font-size: 0.72rem;
+  color: #806030;
+  font-style: italic;
+  white-space: nowrap;
+}
+
+.dd-house {
+  font-family: 'Cinzel', serif;
+  font-size: 0.65rem;
+  color: #604a20;
+  white-space: nowrap;
+}
+
+.dd-empty {
+  padding: 0.7rem 0.8rem;
+  font-family: 'Cinzel', serif;
+  font-size: 0.72rem;
+  color: #604a20;
+  font-style: italic;
+}
+
+/* ── SEARCH HIGHLIGHT ── */
+.npc-card.search-selected {
+  outline: 2px solid #d4a017;
+  background: #fff8e8;
+}
+
+.map-marker.search-active {
+  background: #2e8c64 !important;
+  border-color: #fff !important;
+  box-shadow: 0 0 0 5px rgba(46,140,100,0.45), 0 0 12px rgba(46,140,100,0.6) !important;
+  transform: translate(-50%, -50%) scale(1.4) !important;
+  z-index: 10;
+}
+
+.map-marker.disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+/* ── BUTTONS ── */
+.house-map-btn {
+  border: 1px solid rgba(76,134,186,0.3);
+  background: rgba(76,134,186,0.12);
+  color: var(--water2);
+  font-family: 'Cinzel', serif;
+  font-size: 0.72rem;
+  padding: 4px 8px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.house-map-btn:hover {
+  background: rgba(76,134,186,0.22);
+  color: #ffffff;
+}
+
+/* ── FILTER BAR ── */
+.filter-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: nowrap;
+}
+.filter-bar {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: nowrap;
+  flex: 1;
+}
+.vis-filter-select {
+  background: rgba(180,130,20,0.08);
+  border: 1px solid rgba(180,130,20,0.35);
+  color: #c8a040;
+  font-family: 'Cinzel', serif;
+  font-size: 0.68rem;
+  letter-spacing: 0.05em;
+  padding: 4px 8px;
+  border-radius: 2px;
+  cursor: pointer;
+  outline: none;
+  flex-shrink: 0;
+}
+.vis-filter-select:focus { border-color: rgba(200,160,40,0.7); }
+.vis-filter-select option { background: #1a0d00; color: #c8a040; }
+
+.filter-btn {
+  background: rgba(180,130,20,0.1);
+  border: 1px solid rgba(180,130,20,0.3);
+  color: #c8a040;
+  font-family: 'Cinzel', serif;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.filter-btn:hover, .filter-btn.active {
+  background: rgba(180,130,20,0.25);
+  border-color: var(--gold2);
+  color: var(--gold2);
+}
+
+/* ── DM BADGE & EXIT ── */
+.dm-header-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.dm-badge {
+  background: rgba(180,30,30,0.18);
+  border: 1px solid rgba(200,50,50,0.5);
+  color: #e07070;
+  font-family: 'Cinzel', serif;
+  font-size: 0.65rem;
+  letter-spacing: 0.14em;
+  padding: 3px 9px;
+  border-radius: 2px;
+  text-transform: uppercase;
+}
+
+/* ── SHOW PLAYER TOGGLES ── */
+.show-player-btn {
+  border: 1px solid rgba(180,80,80,0.6);
+  background: rgba(180,80,80,0.18);
+  color: #f0a0a0;
+  font-family: 'Cinzel', serif;
+  font-size: 0.65rem;
+  letter-spacing: 0.04em;
+  padding: 3px 8px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.show-player-btn:hover {
+  background: rgba(180,80,80,0.32);
+  color: #ffc0c0;
+}
+
+.show-player-btn.is-visible {
+  border-color: rgba(60,180,80,0.7);
+  background: rgba(60,180,80,0.22);
+  color: #80f080;
+}
+
+.show-player-btn.is-visible:hover {
+  background: rgba(60,180,80,0.36);
+}
+
+.npc-player-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+  pointer-events: none;
+}
+
+/* ── MAP ACTION MENU (New ▾ dropdown & map switch) ── */
+.map-action-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background: #110e06;
+  border: 1px solid rgba(212,160,23,0.4);
+  border-radius: 4px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.7);
+  z-index: 300;
+  min-width: 120px;
+  overflow: hidden;
+}
+.map-action-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  border-bottom: 1px solid rgba(212,160,23,0.1);
+  color: var(--gold2);
+  font-family: 'Cinzel', serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  padding: 0.5rem 0.85rem;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.map-action-menu-item:last-child { border-bottom: none; }
+.map-action-menu-item:hover { background: rgba(212,160,23,0.12); }
+.map-switch-btn {
+  background: none;
+  border: none;
+  color: var(--gold2);
+  font-size: 2.2rem;
+  cursor: pointer;
+  padding: 0 6px;
+  line-height: 1;
+  opacity: 0.75;
+  transition: opacity 0.12s;
+}
+.map-switch-btn:hover { opacity: 1; }
+
+/* ── PARTY MARKER ── */
+/* ── PARTY MARKER (interlaced octagram + Party/Location labels; matches the atlas) ── */
+#map-party-marker {
+  position: absolute;
+  transform: translate(-50%, -50%);   /* centred on the point: Party above, star on it, Location below */
+  z-index: 25;
+  pointer-events: none;
+  text-align: center;
+  display: none;
+  transition: filter .15s;
+}
+.party-star-wrap { display: flex; justify-content: center; }
+#map-party-marker.dm-movable { pointer-events: all; cursor: grab; }
+#map-party-marker.dm-movable:hover { filter: drop-shadow(0 0 6px rgba(80,200,40,.9)); }
+#map-party-marker.dragging { cursor: grabbing !important; filter: drop-shadow(0 0 8px rgba(80,200,40,1)); }
+/* Interlaced 8-pointed star: a gold "hot-spot" sweeps around the ring, trailing red→black. */
+@keyframes party-gold-sweep {
+  0%,   100% { stroke: #ffd23a; }
+  12.5%      { stroke: #f0a028; }
+  25%        { stroke: hsl(0 90% 50%); }
+  37.5%      { stroke: hsl(0 90% 40%); }
+  50%        { stroke: hsl(0 90% 30%); }
+  62.5%      { stroke: hsl(0 90% 20%); }
+  75%        { stroke: hsl(0 88% 10%); }
+  81%        { stroke: #000; }
+  87.5%      { stroke: #c33010; }
+  93.75%     { stroke: #e8781c; }
+}
+.party-svg { display: block; overflow: visible; }
+.party-svg .oct-line {
+  fill: none;
+  stroke: #ffd23a;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  animation: party-gold-sweep 1.867s linear infinite;
+}
+.party-svg .oct-line:nth-child(2) { animation-delay: 0s;      }
+.party-svg .oct-line:nth-child(3) { animation-delay: -0.233s; }
+.party-svg .oct-line:nth-child(4) { animation-delay: -0.467s; }
+.party-svg .oct-line:nth-child(5) { animation-delay: -0.7s;   }
+.party-svg .oct-line:nth-child(6) { animation-delay: -0.933s; }
+.party-svg .oct-line:nth-child(7) { animation-delay: -1.167s; }
+.party-svg .oct-line:nth-child(8) { animation-delay: -1.4s;   }
+.party-svg .oct-line:nth-child(1) { animation-delay: -1.633s; }
+.party-label {
+  white-space: nowrap;
+  font-family: 'Tribal Garamond', 'Cinzel', serif;
+  font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
+  color: #122a6b;
+  -webkit-text-stroke: 0.5px #c8922a; text-stroke: 0.5px #c8922a; paint-order: stroke fill;
+  text-shadow: 0 0 4px rgba(0,0,0,.9), 0 0 8px rgba(0,0,0,.7);
+  pointer-events: none; user-select: none; line-height: 1.15;
+}
+.party-label-top { margin-bottom: 1px; }
+.party-label-bot { margin-top: 1px; }
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #0e0a04; }
+::-webkit-scrollbar-thumb { background: #3a2a0a; border-radius: 3px; }
+
+/* ── MAIN TAB BAR (Map / Lore) ── */
+.map-main-tab-bar { display:flex; gap:0; border-bottom:2px solid var(--parchment3); margin-bottom:1.5rem; }
+.map-main-tab-btn { font-family:'Cinzel',serif; font-size:0.78rem; font-weight:600; letter-spacing:0.06em; padding:0.5rem 1.4rem; background:none; border:none; border-bottom:3px solid transparent; margin-bottom:-2px; cursor:pointer; color:var(--ink3); transition:color 0.15s, border-color 0.15s; }
+.map-main-tab-btn:hover { color:var(--gold2); }
+.map-main-tab-btn.active { color:var(--gold2); border-bottom-color:var(--gold2); }
+.map-main-pane { display:none; }
+.map-main-pane.active { display:block; }
+
+/* ── LORE NOTES ── */
+.lore-pane { max-width:820px; }
+.notes-list { display:flex; flex-direction:column; gap:0.75rem; }
+.note-item { background:var(--parchment); border:1px solid var(--parchment3); border-radius:4px; box-shadow:0 2px 10px rgba(0,0,0,0.4); overflow:hidden; }
+.note-header { display:flex; align-items:center; gap:0.6rem; padding:0.5rem 0.75rem; background:var(--parchment2); border-bottom:1px solid var(--parchment3); }
+.note-label-input { font-family:'Cinzel',serif; font-size:0.78rem; font-weight:600; color:var(--ink); background:transparent; border:1px solid transparent; flex:1; padding:2px 5px; border-radius:2px; }
+.note-label-input:hover { border-color:rgba(180,100,30,0.3); background:rgba(255,248,235,0.5); }
+.note-label-input:focus { outline:none; border-color:var(--gold); background:rgba(255,248,235,0.9); }
+.note-body { padding:0.6rem 0.75rem; }
+.note-value-input { width:100%; background:rgba(255,255,255,0.4); border:1px solid transparent; color:var(--ink2); font-family:'Crimson Pro',serif; font-size:0.9rem; line-height:1.6; padding:4px 6px; border-radius:2px; resize:vertical; min-height:70px; field-sizing:content; }
+.note-value-input:hover { border-color:rgba(180,100,30,0.3); background:rgba(255,248,235,0.55); }
+.note-value-input:focus { outline:none; border-color:var(--gold); background:rgba(255,248,235,0.9); }
+.note-attach-row { margin-top:0.5rem; }
+.note-att-add { font-family:'Cinzel',serif; font-size:0.62rem; letter-spacing:0.05em; padding:3px 9px; border-radius:3px; cursor:pointer; border:1px dashed var(--parchment3); background:rgba(255,248,235,0.4); color:var(--ink3); transition:all 0.12s; }
+.note-att-add:hover { border-color:var(--gold); color:var(--gold); background:rgba(255,248,235,0.7); }
+.note-att { display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap; }
+.note-att-thumb { max-height:88px; max-width:140px; border-radius:4px; border:1px solid var(--parchment3); cursor:zoom-in; display:block; object-fit:cover; }
+.note-att-pdf { font-family:'Cinzel',serif; font-size:0.72rem; color:var(--red); text-decoration:none; border:1px solid rgba(180,40,40,0.35); border-radius:3px; padding:4px 9px; background:rgba(180,40,40,0.06); }
+.note-att-pdf:hover { background:rgba(180,40,40,0.14); }
+.note-att-remove { font-family:'Cinzel',serif; font-size:0.58rem; letter-spacing:0.05em; padding:2px 7px; border-radius:3px; cursor:pointer; border:1px solid transparent; background:none; color:var(--ink3); opacity:0.75; }
+.note-att-remove:hover { opacity:1; color:var(--red); border-color:rgba(180,40,40,0.4); background:rgba(180,40,40,0.1); }
+.send-players-btn { font-family:'Cinzel',serif; font-size:0.6rem; letter-spacing:0.05em; padding:2px 9px; border-radius:3px; cursor:pointer; white-space:nowrap; border:1px solid rgba(180,60,60,0.6); background:rgba(180,60,60,0.14); color:#c85a5a; transition:all 0.12s; }
+.send-players-btn.sent { border-color:rgba(60,160,80,0.8); background:rgba(60,160,80,0.22); color:#3f8f57; }
+.note-remove-btn { background:none; border:1px solid transparent; border-radius:3px; color:var(--ink3); cursor:pointer; font-size:0.8rem; opacity:0.7; transition:all 0.12s; padding:1px 6px; }
+.note-remove-btn:hover { opacity:1; color:var(--red); border-color:rgba(180,40,40,0.4); background:rgba(180,40,40,0.1); }
+.add-note-btn { background:rgba(180,130,20,0.08); border:1px dashed rgba(180,130,20,0.35); color:var(--ink3); font-family:'Cinzel',serif; font-size:0.72rem; padding:0.55rem 0; border-radius:3px; cursor:pointer; width:100%; text-align:center; transition:all 0.15s; margin-top:0.5rem; }
+.add-note-btn:hover { background:rgba(180,130,20,0.18); border-color:var(--gold); color:var(--ink); }
+/* ── PER-MAP MIGRATE DROPDOWN ── */
+.mig-wrap { position:relative; display:inline-flex; }
+.mig-toggle { background:none; border:1px solid rgba(180,100,30,0.35); border-radius:3px; color:var(--ink3); cursor:pointer; font-size:1rem; padding:2px 6px; line-height:1.2; transition:all 0.12s; }
+.mig-toggle:hover { border-color:var(--gold); color:var(--gold); background:rgba(180,130,20,0.1); }
+.mig-menu { position:absolute; right:0; top:100%; z-index:120; background:var(--parchment2); border:1px solid var(--parchment3); border-radius:4px; box-shadow:0 4px 16px rgba(0,0,0,0.5); min-width:110px; display:none; flex-direction:column; }
+.mig-menu.open { display:flex; }
+.mig-item { font-family:'Cinzel',serif; font-size:0.65rem; letter-spacing:0.04em; padding:0.4rem 0.75rem; background:none; border:none; color:var(--ink2); cursor:pointer; text-align:left; white-space:nowrap; transition:background 0.1s; }
+.mig-item:hover { background:rgba(180,130,20,0.15); color:var(--ink); }
+.mig-item.mig-remove:hover { color:var(--red); background:rgba(180,40,40,0.1); }
+/* ── MIGRATE MODAL ── */
+#migrateModal { position:fixed; inset:0; z-index:900; display:none; align-items:center; justify-content:center; }
+#migrateModal.open { display:flex; }
+.migrate-backdrop { position:absolute; inset:0; background:rgba(0,0,0,0.6); }
+.migrate-dialog { position:relative; background:var(--parchment); border:1px solid var(--parchment3); border-radius:6px; box-shadow:0 8px 32px rgba(0,0,0,0.6); padding:1.4rem 1.6rem; min-width:260px; max-width:360px; }
+.migrate-title { font-family:'Cinzel',serif; font-size:0.82rem; font-weight:600; letter-spacing:0.06em; color:var(--ink); margin-bottom:0.9rem; }
+.migrate-map-btn { display:block; width:100%; font-family:'Cinzel',serif; font-size:0.72rem; letter-spacing:0.04em; padding:0.5rem 0.75rem; background:none; border:1px solid rgba(180,130,20,0.3); border-radius:3px; color:var(--ink2); cursor:pointer; text-align:left; margin-bottom:0.4rem; transition:all 0.12s; }
+.migrate-map-btn:hover { background:rgba(180,130,20,0.18); border-color:var(--gold); color:var(--ink); }
+.migrate-cancel { margin-top:0.5rem; display:block; width:100%; font-family:'Cinzel',serif; font-size:0.65rem; padding:0.35rem; background:none; border:1px solid rgba(180,100,30,0.25); border-radius:3px; color:var(--ink3); cursor:pointer; }
+.migrate-cancel:hover { border-color:rgba(180,100,30,0.6); color:var(--ink); }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div>
+    <div class="site-title" id="headerTitle"></div>
+    <div class="site-subtitle" id="headerSubtitle"></div>
+  </div>
+  <div class="dm-header-group" id="dmHeaderGroup" style="display:none">
+    <span class="dm-badge">DM View</span>
+  </div>
+  <div class="header-stats">
+    <div class="hstat"><span class="hstat-num" id="statHomes">—</span><span class="hstat-label" id="statHomesLabel">Homes</span></div>
+    <div class="hstat"><span class="hstat-num" id="statResidents">—</span><span class="hstat-label" id="statResidentsLabel">Residents</span></div>
+    <div class="hstat" id="statLoggedWrap"><span class="hstat-num" id="statLogged">—</span><span class="hstat-label">Premises</span></div>
+  </div>
+</header>
+
+<div class="app">
+
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-section">Households</div>
+</nav>
+
+<main class="main" id="main">
+  <div class="map-main-tab-bar">
+    <button class="map-main-tab-btn active" data-maptab="map">Map</button>
+    <button class="map-main-tab-btn" data-maptab="lore">Lore</button>
+  </div>
+  <div class="map-main-pane active" id="maptab-map">
+  <div class="map-panel" id="mapPanel">
+    <div class="map-header">
+      <div style="display:flex;align-items:center;gap:0.4rem">
+        <span id="mapTitle"></span>
+        <div id="mapSwitchWrap" style="display:none;position:relative">
+          <button type="button" class="map-switch-btn" id="mapSwitchBtn">▾</button>
+          <div class="map-action-menu" id="mapSwitchDropdown" style="display:none;left:0;right:auto"></div>
+        </div>
+      </div>
+      <div class="map-actions">
+        <div class="search-wrapper" id="searchWrapper">
+          <input id="npcSearchInput" class="map-search" type="text" placeholder="Search by name, race, profession…" aria-label="Search individuals" autocomplete="off" />
+          <div class="search-dropdown" id="searchDropdown"></div>
+        </div>
+        <button class="house-map-btn" id="npcToolBtn" type="button">NPC tool</button>
+        <button class="house-map-btn" id="mapLabelsBtn" type="button">Show locations</button>
+        <button class="house-map-btn" id="mapEditBtn" type="button" style="display:none">Edit positions</button>
+        <div id="hexGridWrap" style="display:none;position:relative">
+          <button class="house-map-btn" id="hexGridBtn" type="button">Hex Grid</button>
+          <div class="hexgrid-popover" id="hexGridPopover">
+            <label for="hexGridScale">Cell size (px)</label>
+            <input type="number" id="hexGridScale" min="10" max="2000" step="1" value="112">
+            <div class="hexgrid-hint">Smaller = finer grid</div>
+          </div>
+        </div>
+        <div id="newMenuWrap" style="display:none;position:relative">
+          <button class="house-map-btn" id="newMenuBtn" type="button">+ New ▾</button>
+          <div class="map-action-menu" id="newMenuDropdown" style="display:none">
+            <button type="button" class="map-action-menu-item" id="newPremisesItem">Premises</button>
+            <button type="button" class="map-action-menu-item" id="newLabelItem">Label</button>
+            <button type="button" class="map-action-menu-item" id="newMapItem">Map</button>
+            <button type="button" class="map-action-menu-item" id="newPartyItem">Party Marker</button>
+            <button type="button" class="map-action-menu-item" id="newTokenItem">Token</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="placement-banner"></div>
+    <div class="map-frame" id="mapFrame"></div>
+  </div>
+  <div class="filter-row">
+    <div class="filter-bar" id="filterBar"></div>
+    <select class="vis-filter-select" id="visFilterSelect" style="display:none">
+      <option value="all">All locations</option>
+      <option value="shown">Shown to players</option>
+      <option value="hidden">Hidden from players</option>
+    </select>
+  </div>
+  <div id="houseList"></div>
+  </div><!-- /maptab-map -->
+  <div class="map-main-pane" id="maptab-lore">
+    <div class="lore-pane">
+      <div class="notes-list" id="loreNotesList"></div>
+      <button class="add-note-btn" id="addLoreNoteBtn">+ Add Note</button>
+    </div>
+  </div><!-- /maptab-lore -->
+</main>
+
+</div>
+
+<!-- Migrate element to another map modal -->
+<div id="migrateModal">
+  <div class="migrate-backdrop" id="migrateBackdrop"></div>
+  <div class="migrate-dialog">
+    <div class="migrate-title" id="migrateModalTitle">Migrate to map:</div>
+    <div id="migrateMapList"></div>
+    <button class="migrate-cancel" id="migrateCancelBtn">Cancel</button>
+  </div>
+</div>
+
+<script>
+// ─── DYNAMIC TOWN LOADER ─────────────────────────────────────────────────────
+(function () {
+  const params = new URLSearchParams(window.location.search);
+  const raw    = params.get('town') || '';
+  const folder = raw.toLowerCase().replace(/[^a-z0-9]/g, '_');
+
+  if (!folder) {
+    document.addEventListener('DOMContentLoaded', function () {
+      document.querySelector('.app').innerHTML =
+        '<div style="grid-column:1/-1;color:#c8a040;font-family:Cinzel,serif;' +
+        'padding:4rem;text-align:center">' +
+        '<p style="font-size:1.2rem">No town specified</p>' +
+        '<p style="margin-top:1rem;font-style:italic;color:#806030">' +
+        'Open this page with a <code>?town=townname</code> parameter.</p></div>';
+    });
+    return;
+  }
+
+  document.addEventListener('DOMContentLoaded', async function () {
+    const ok = await initFromServer();
+    if (ok && typeof build === 'function') build();
+    if (ok) rebuildLoreNotes();
+  });
+}());
+</script>
+
+<script>
+// ─── MODE ────────────────────────────────────────────────────────────────────
+// IS_DM is set by the server — localhost requests are DM, all others are players.
+// ?player_test forces player mode for local testing.
+let IS_DM = false;
+
+// NPC player notes broadcast from the NPC tool — keyed by npc slug.
+let npcPlayerNotes = {};
+// DM-only portrait index — all NPCs that have an image, keyed by npc slug.
+let npcImages = {};
+// NPC display name -> sheet npcId, so cards can reach the sheet even when the
+// town content defined the NPC without an id.
+let npcIdByName = {};
+// Notes controllers for currently-built cards, so a change in the NPC tool can
+// live-refresh the matching card here.
+const activeNotesControllers = new Set();
+function flushAllNotes() { activeNotesControllers.forEach(c => c.flush?.()); }
+window.addEventListener('beforeunload', flushAllNotes);
+window.addEventListener('pagehide', e => { if (!e.persisted) flushAllNotes(); });
+
+async function loadNpcIdMap() {
+  try {
+    const list = await fetch('/api/npc-sheets').then(r => r.json());
+    npcIdByName = {};
+    (list.sheets || []).forEach(s => { if (s.name) npcIdByName[s.name] = s.npcId; });
+  } catch(_) {}
+}
+
+function npcSlug(name) {
+  return (name || '').toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/_+/g,'_').replace(/^_|_$/g,'');
+}
+
+// ─── SERVER STATE ────────────────────────────────────────────────────────────
+let serverState = {
+  playerVis:      { houses: {}, npcs: {} },
+  npcEdits:       {},
+  npcSchema:      {},
+  housePositions: {},
+  locPositions:   {},
+  loreNotes:      []
+};
+let TOWN_SLUG_API = '';
+
+async function fetchTownState() {
+  const r = await fetch(`/api/town/${TOWN_SLUG_API}`);
+  return r.json();
+}
+
+async function initFromServer() {
+  const params = new URLSearchParams(location.search);
+  TOWN_SLUG_API = (params.get('town') || '').toLowerCase().replace(/[^a-z0-9]/g, '_');
+  try {
+    const data = await fetchTownState();
+    IS_DM = data.isDM && !params.has('player_test');
+    if (window.DiceRoll) DiceRoll.setDM(IS_DM);   // only the DM may right-click a roll → hidden
+    serverState.playerVis      = data.playerVis      || { houses: {}, npcs: {} };
+    serverState.npcEdits       = data.npcEdits       || {};
+    serverState.npcSchema      = data.npcSchema      || {};
+    serverState.housePositions = data.housePositions || {};
+    serverState.locPositions   = data.locPositions   || {};
+    serverState.loreNotes      = Array.isArray(data.loreNotes) ? data.loreNotes : [];
+    npcPlayerNotes             = data.npcPlayerNotes || {};
+    npcImages                  = data.npcImages      || {};
+    await loadNpcIdMap();
+
+    if (data.content) {
+      applyTownContentFromDB(data.content);
+      return true;
+    } else {
+      document.querySelector('.app').innerHTML =
+        '<div style="grid-column:1/-1;color:#c8a040;font-family:Cinzel,serif;' +
+        'padding:4rem;text-align:center">' +
+        '<p style="font-size:1.2rem">Town not found</p>' +
+        '<p style="margin-top:1rem;font-style:italic;color:#806030">' +
+        'No content in database for <code>' + escHtml(TOWN_SLUG_API) + '</code></p></div>';
+      return false;
+    }
+  } catch(e) { console.error('Server not reachable:', e); return false; }
+}
+
+// Apply DB content to the global variables build() depends on
+function applyTownContentFromDB(c) {
+  window.TOWN_NAME            = c.name           || '';
+  window.MAP_IMAGE_FILENAME   = c.mapImage        || '';
+  window.TOWN_TOTAL_HOMES     = c.totalHomes      != null ? c.totalHomes     : 0;
+  window.TOWN_TOTAL_RESIDENTS = c.totalResidents  != null ? c.totalResidents : 0;
+  EXTRA_MAPS = Array.isArray(c.extraMaps) ? c.extraMaps : [];
+  EXTRA_MAPS.forEach(em => {
+    if (!Array.isArray(em.households))    em.households    = [];
+    if (!Array.isArray(em.townLocations)) em.townLocations = [];
+    if (!em.houseMapDefault) em.houseMapDefault = {};
+    if (!em.housePositions)  em.housePositions  = {};
+    if (!em.locPositions)    em.locPositions    = {};
+    if (!em.playerVis)       em.playerVis       = { houses: {}, npcs: {} };
+  });
+  // Always update main map snap from content
+  _mainMapSnap = {
+    households:      Array.isArray(c.households)    ? c.households    : [],
+    townLocations:   Array.isArray(c.townLocations) ? c.townLocations : [],
+    houseMapDefault: c.houseMapDefault || {},
+  };
+  _mainMapSnap.households.forEach(h => { if (!Array.isArray(h.npcs)) h.npcs = []; });
+  // Load the currently active map's data into globals
+  if (activeMapIndex === 0 || !EXTRA_MAPS[activeMapIndex - 1]) {
+    activeMapIndex = 0;
+    window.HOUSEHOLDS        = _mainMapSnap.households;
+    window.HOUSE_MAP_DEFAULT  = _mainMapSnap.houseMapDefault;
+    window.TOWN_LOCATIONS    = _mainMapSnap.townLocations;
+  } else {
+    _loadExtraMapGlobals(activeMapIndex);
+  }
+}
+
+// Load an extra map's households/locations/houseMapDefault into the active globals.
+// Positions are handled by initHouseMap/initLocMap; playerVis by loadPlayerVisibility.
+function _loadExtraMapGlobals(index) {
+  const em = EXTRA_MAPS[index - 1];
+  if (!em) return;
+  window.HOUSEHOLDS        = Array.isArray(em.households)    ? em.households    : [];
+  window.HOUSEHOLDS.forEach(h => { if (!Array.isArray(h.npcs)) h.npcs = []; });
+  window.TOWN_LOCATIONS    = Array.isArray(em.townLocations) ? em.townLocations : [];
+  window.HOUSE_MAP_DEFAULT  = em.houseMapDefault || {};
+}
+
+// Load the main town map's content + positions into the active globals.
+// Positions come from serverState (kept current by pushState/SSE).
+function _loadMainMapGlobals() {
+  window.HOUSEHOLDS        = _mainMapSnap.households;
+  window.HOUSEHOLDS.forEach(h => { if (!Array.isArray(h.npcs)) h.npcs = []; });
+  window.TOWN_LOCATIONS    = _mainMapSnap.townLocations;
+  window.HOUSE_MAP_DEFAULT  = _mainMapSnap.houseMapDefault;
+  _replaceObj(HOUSE_MAP, serverState.housePositions || {});
+  _replaceObj(LOC_MAP,   serverState.locPositions   || {});
+  playerVisibility = serverState.playerVis;
+}
+
+// Write current globals back to their storage slot before switching maps.
+function _flushCurrentMapData() {
+  if (activeMapIndex === 0) {
+    _mainMapSnap.households     = HOUSEHOLDS.filter(h => !h.virtual);
+    _mainMapSnap.townLocations  = [...TOWN_LOCATIONS];
+    _mainMapSnap.houseMapDefault = { ...HOUSE_MAP_DEFAULT };
+    // Main-map positions live in serverState (kept current by pushState/SSE); no snap needed.
+  } else {
+    const em = EXTRA_MAPS[activeMapIndex - 1];
+    if (!em) return;
+    em.households     = HOUSEHOLDS.filter(h => !h.virtual);
+    em.townLocations  = [...TOWN_LOCATIONS];
+    em.houseMapDefault = { ...HOUSE_MAP_DEFAULT };
+    em.housePositions  = { ...HOUSE_MAP };
+    em.locPositions    = { ...LOC_MAP };
+    em.playerVis = JSON.parse(JSON.stringify(playerVisibility));
+  }
+}
+
+// Replace contents of target object with source (clears then assigns).
+function _replaceObj(target, source) {
+  Object.keys(target).forEach(k => delete target[k]);
+  Object.assign(target, source || {});
+}
+
+async function pushState() {
+  if (!IS_DM) return;
+  try {
+    await fetch(`/api/town/${TOWN_SLUG_API}`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(serverState)
+    });
+  } catch(e) {}
+}
+
+
+function connectSSE() {
+  function attach() {
+    const es = new EventSource(`/api/events/${TOWN_SLUG_API}`);
+    es.onmessage = e => {
+      try {
+        const data = JSON.parse(e.data);
+        // Roll log + live-reload ride this one stream (no extra SSE connections).
+        // Return unconditionally so a roll NEVER falls through to the rebuild logic below
+        // (which would refresh the whole map). If DiceRoll isn't ready yet, just drop it.
+        if (data.type === 'dr-roll') { if (window.DiceRoll) DiceRoll.ingestRemote(data.entry); return; }
+        if (data.type === 'dr-reload') { location.reload(); return; }
+        if (data.type === 'combat' && data.state && window.CombatPanel) { window.CombatPanel.ingest(data.state); return; }
+        // Map tokens: pool changes re-render; a token move glides to its new cell.
+        if (data.type === 'tokenPool') { tokenPool = Array.isArray(data.pool) ? data.pool : []; renderTokens(); return; }
+        if (data.type === 'tokenMove') { applyRemoteTokenMove(data); return; }
+        // Player-notes broadcast from NPC tool — update and refresh NPC cards
+        if (data.type === 'playerNotes') {
+          npcPlayerNotes = data.npcPlayerNotes != null ? data.npcPlayerNotes : npcPlayerNotes;
+          npcImages      = data.npcImages      != null ? data.npcImages      : npcImages;
+          updateNpcPlayerNoteCards();
+          return;
+        }
+        // NPC sheet changed — re-inject if structural, refresh notes if note-only.
+        if (data.type === 'npcSheetUpdate') {
+          const ae = document.activeElement;
+          const editingHere = ae && ae.closest && (ae.closest('.npc-notes-area') || ae.classList.contains('npc-role'));
+          fetchTownState().then(async fresh => {
+            if (!fresh.content) return;
+            npcPlayerNotes = fresh.npcPlayerNotes || npcPlayerNotes;
+            npcImages      = fresh.npcImages      || npcImages;
+            // Note-only change: skip if DM is actively editing here (own save echo-back).
+            if (contentSig(fresh.content) === lastContentSig) {
+              if (!editingHere) { activeNotesControllers.forEach(c => c.refresh()); updateNpcPlayerNoteCards(); }
+              return;
+            }
+            // Structural change: always rebuild regardless of editing state.
+            serverState.playerVis = fresh.playerVis || serverState.playerVis;
+            serverState.npcEdits  = fresh.npcEdits  || serverState.npcEdits;
+            serverState.npcSchema = fresh.npcSchema || serverState.npcSchema;
+            playerVisibility      = serverState.playerVis;
+            await loadNpcIdMap();
+            applyTownContentFromDB(fresh.content);
+            _poll.contentSig = contentSig(fresh.content);
+            rebuildContent();
+          }).catch(() => {});
+          return;
+        }
+        const visChanged = JSON.stringify(data.playerVis) !== JSON.stringify(serverState.playerVis);
+        const incomingVis = data.playerVis;
+        serverState.playerVis = (incomingVis && incomingVis.houses) ? incomingVis : serverState.playerVis;
+        serverState.npcEdits       = data.npcEdits       || serverState.npcEdits;
+        serverState.npcSchema      = data.npcSchema      || serverState.npcSchema;
+        // Only apply main-map positions when actually on the main map
+        if (activeMapIndex === 0) {
+          if (data.housePositions) { Object.assign(HOUSE_MAP, data.housePositions); }
+          serverState.housePositions = HOUSE_MAP;
+          serverState.locPositions   = data.locPositions || serverState.locPositions;
+          if (data.locPositions) { Object.assign(LOC_MAP, data.locPositions); renderPartyMarker(); }
+          playerVisibility = serverState.playerVis;
+          // Re-apply the main map's own hex grid from the freshly-synced positions.
+          if (typeof loadHexGridFromState === 'function') loadHexGridFromState();
+        }
+        // (Extra-map grid changes ride the town_content broadcast → rebuildContent → buildMap
+        //  → loadHexGridFromState, so no extra handling is needed here for them.)
+        npcPlayerNotes             = data.npcPlayerNotes || npcPlayerNotes;
+        npcImages                  = data.npcImages      || npcImages;
+        // Keep polling baselines in sync so the next tick doesn't double-rebuild.
+        _poll.visJson   = JSON.stringify({ pv: serverState.playerVis, ne: serverState.npcEdits, ns: serverState.npcSchema });
+        _poll.notesJson = JSON.stringify(npcPlayerNotes);
+        _poll.locJson   = JSON.stringify(serverState.locPositions || {});   // grid/party baseline
+        if (IS_DM)           updateVisibilityUI();
+        else if (visChanged) rebuildContent();
+        else                 updateNpcPlayerNoteCards();
+      } catch(_) {}
+    };
+    // On connection error, close and reconnect after 3 s.
+    // The server sends the full current state on every (re)connect, so no updates are lost.
+    es.onerror = () => { es.close(); setTimeout(attach, 3000); };
+  }
+  attach();
+}
+
+// Shared polling baselines — updated by both SSE and polling so they stay in sync
+// and SSE-applied changes don't look like new changes on the next tick.
+// locJson tracks the main map's loc_pos (which carries the HEX GRID '__hexgrid__' and the
+// PARTY marker '__party__'), so grid/party changes are caught even when SSE is buffered.
+const _poll = { visJson: '', notesJson: '', contentSig: '', locJson: '' };
+
+// Polling fallback — fetches state every 3 s and rebuilds if it changed.
+// Guards against SSE messages lost to Cloudflare buffering or dropped connections.
+function startPlayerPolling() {
+  if (IS_DM) return;
+  _poll.visJson     = JSON.stringify({ pv: serverState.playerVis, ne: serverState.npcEdits, ns: serverState.npcSchema });
+  _poll.notesJson   = JSON.stringify(npcPlayerNotes);
+  _poll.contentSig  = contentSig({ households: HOUSEHOLDS, extraMaps: EXTRA_MAPS });
+  _poll.locJson     = JSON.stringify(serverState.locPositions || {});
+  const tick = async () => {
+    try {
+      const data = await fetchTownState();
+      const newVisJson    = JSON.stringify({ pv: data.playerVis, ne: data.npcEdits, ns: data.npcSchema });
+      const newNotesJson  = JSON.stringify(data.npcPlayerNotes);
+      const newContentSig = contentSig(data.content);
+      const newLocJson    = JSON.stringify(data.locPositions || {});
+      const visChanged     = newVisJson    !== _poll.visJson;
+      const notesChanged   = newNotesJson  !== _poll.notesJson;
+      const contentChanged = newContentSig !== _poll.contentSig;
+      const locChanged     = newLocJson    !== _poll.locJson;
+      if (contentChanged) {
+        _poll.visJson    = newVisJson;
+        _poll.notesJson  = newNotesJson;
+        _poll.contentSig = newContentSig;
+        _poll.locJson    = newLocJson;   // rebuildContent re-applies the grid, so adopt this baseline
+        serverState.playerVis = data.playerVis || serverState.playerVis;
+        serverState.npcEdits  = data.npcEdits  || serverState.npcEdits;
+        serverState.npcSchema = data.npcSchema || serverState.npcSchema;
+        playerVisibility      = serverState.playerVis;
+        npcPlayerNotes        = data.npcPlayerNotes || npcPlayerNotes;
+        npcImages             = data.npcImages      || npcImages;
+        applyTownContentFromDB(data.content);
+        rebuildContent();
+      } else if (visChanged || notesChanged || locChanged) {
+        if (visChanged) {
+          _poll.visJson         = newVisJson;
+          serverState.playerVis = data.playerVis || serverState.playerVis;
+          serverState.npcEdits  = data.npcEdits  || serverState.npcEdits;
+          serverState.npcSchema = data.npcSchema || serverState.npcSchema;
+          playerVisibility      = serverState.playerVis;
+        }
+        if (notesChanged) {
+          _poll.notesJson = newNotesJson;
+          npcPlayerNotes  = data.npcPlayerNotes || npcPlayerNotes;
+          npcImages       = data.npcImages      || npcImages;
+        }
+        // Hex grid + party marker live in loc_pos. Apply on the MAIN map (extra-map grids ride
+        // the content path). Mirrors the SSE handler so a grid/party change is never missed.
+        if (locChanged) {
+          _poll.locJson = newLocJson;
+          serverState.locPositions = data.locPositions || serverState.locPositions;
+          if (activeMapIndex === 0 && data.locPositions) {
+            Object.assign(LOC_MAP, data.locPositions);
+            renderPartyMarker();
+            if (typeof loadHexGridFromState === 'function') loadHexGridFromState();
+          }
+        }
+        if (visChanged) rebuildContent();
+        else            updateNpcPlayerNoteCards();
+      }
+    } catch(_) {}
+    setTimeout(tick, 3000);
+  };
+  setTimeout(tick, 3000);
+}
+
+// ─── PLAYER VISIBILITY ───────────────────────────────────────────────────────
+let playerVisibility = { houses: {}, npcs: {} };
+
+function loadPlayerVisibility() {
+  if (activeMapIndex === 0) {
+    playerVisibility = serverState.playerVis;
+  } else {
+    const em = EXTRA_MAPS[activeMapIndex - 1];
+    playerVisibility = (em && em.playerVis) || { houses: {}, npcs: {} };
+  }
+}
+
+function savePlayerVisibility() {
+  if (activeMapIndex === 0) {
+    serverState.playerVis = playerVisibility;
+    pushState();
+  } else {
+    const em = EXTRA_MAPS[activeMapIndex - 1];
+    if (em) em.playerVis = JSON.parse(JSON.stringify(playerVisibility));
+    saveTownContentToServer();
+  }
+}
+
+function isHouseVisible(houseId) {
+  return playerVisibility.houses[String(houseId)] === true;
+}
+
+function isNpcVisible(houseId, npcName) {
+  // Cascade: a hidden house hides all its residents regardless of individual state
+  if (!isHouseVisible(houseId)) return false;
+  const h = playerVisibility.npcs[String(houseId)];
+  // Default hidden — DM must explicitly reveal each NPC (stored as true)
+  return !!(h && h[npcName] === true);
+}
+
+function toggleHouseVisibility(houseId) {
+  const k = String(houseId);
+  if (isHouseVisible(houseId)) {
+    delete playerVisibility.houses[k];   // remove = back to hidden (default)
+  } else {
+    playerVisibility.houses[k] = true;   // true = visible to players
+  }
+  savePlayerVisibility();
+  updateVisibilityUI();
+}
+
+function toggleNpcVisibility(houseId, npcName) {
+  const hid = String(houseId);
+  if (!playerVisibility.npcs[hid]) playerVisibility.npcs[hid] = {};
+  if (isNpcVisible(houseId, npcName)) {
+    delete playerVisibility.npcs[hid][npcName];   // remove = back to hidden (default)
+  } else {
+    playerVisibility.npcs[hid][npcName] = true;   // true = revealed to players
+  }
+  savePlayerVisibility();
+  updateVisibilityUI();
+}
+
+function updateVisibilityUI() {
+  // Sidebar buttons
+  document.querySelectorAll('.house-btn').forEach(btn => {
+    const id = btn.dataset.houseId;
+    btn.classList.toggle('sb-hidden', !isHouseVisible(id));
+  });
+
+  // House cards
+  document.querySelectorAll('.house-card').forEach(card => {
+    if (card.dataset.virtual) return; // virtual households always visible to DM
+    const id = card.id.replace('house-', '');
+    const vis = isHouseVisible(id);
+    card.classList.toggle('dm-hidden', !vis);
+    const hBtn = card.querySelector('.house-player-btn');
+    if (hBtn) {
+      hBtn.textContent = vis ? '● Visible to Players' : '○ Hidden from Players';
+      hBtn.classList.toggle('is-visible', vis);
+    }
+  });
+
+  // NPC cards
+  document.querySelectorAll('.npc-card').forEach(card => {
+    const houseCard = card.closest('.house-card');
+    if (!houseCard || houseCard.dataset.virtual) return; // skip virtual households
+    const houseId = houseCard.id.replace('house-', '');
+    const npcName = card.dataset.npcName;
+    const houseHidden = !isHouseVisible(houseId);
+    const vis = isNpcVisible(houseId, npcName);
+    card.classList.toggle('dm-hidden', !vis);
+    const nBtn = card.querySelector('.npc-player-btn');
+    if (nBtn) {
+      nBtn.disabled = houseHidden;
+      nBtn.textContent = vis ? '● Revealed' : '○ Hidden';
+      nBtn.classList.toggle('is-visible', vis);
+    }
+  });
+
+  // Map markers
+  document.querySelectorAll('.map-marker').forEach(marker => {
+    marker.classList.toggle('mk-hidden', !isHouseVisible(marker.dataset.houseId));
+  });
+}
+
+// Build an NPC-tool URL, carrying over the DM key (?dmkey=) if this page was
+// opened with one — so the NPC tool opens in the same DM/player mode as the map
+// tool (the signed DM cookie normally covers this; this is belt-and-suspenders).
+function npcToolUrl(params) {
+  const q = new URLSearchParams(params || {});
+  const dmkey = new URLSearchParams(location.search).get('dmkey');
+  if (dmkey) q.set('dmkey', dmkey);
+  q.set('_', Date.now()); // cache-bust so the NPC tool always loads fresh (never a stale cached copy)
+  return '/npcs/npc_tool.html?' + q.toString();
+}
+
+// ─── CONFIG ──────────────────────────────────────────────────────────────────
+let _mapNaturalSizes = {};
+let EXTRA_MAPS       = [];
+let _mainMapSnap = { households: [], townLocations: [], houseMapDefault: {}, housePositions: {}, locPositions: {} };
+let activeMapIndex   = 0;
+let mapImageLoading  = false;
+
+function getActiveMapUrl() {
+  if (activeMapIndex === 0 || !EXTRA_MAPS[activeMapIndex - 1]) return MAP_IMAGE_FILENAME;
+  return EXTRA_MAPS[activeMapIndex - 1].url;
+}
+
+function applyMapImage() {
+  const mapFrame = document.getElementById('mapFrame');
+  const imgSrc   = getActiveMapUrl();
+  if (!imgSrc) {
+    mapFrame.style.backgroundImage = 'none';
+    mapFrame.style.maxWidth    = '';
+    mapFrame.style.aspectRatio = '';
+    mapFrame.classList.add('map-no-image');
+    mapImageLoading = false;
+    return;
+  }
+  mapFrame.classList.remove('map-no-image');
+  mapFrame.style.backgroundImage = `url('${imgSrc.replace(/'/g, '%27')}')`;
+
+  const cached = _mapNaturalSizes[imgSrc];
+  if (cached) {
+    mapFrame.style.maxWidth    = cached.w + 'px';
+    mapFrame.style.aspectRatio = `${cached.w} / ${cached.h}`;
+    return;
+  }
+
+  if (mapImageLoading) return;
+  mapImageLoading = true;
+  const srcAtLoad = imgSrc;
+
+  const img = new Image();
+  img.onload = () => {
+    mapImageLoading = false;
+    _mapNaturalSizes[srcAtLoad] = { w: img.naturalWidth, h: img.naturalHeight };
+    if (getActiveMapUrl() !== srcAtLoad) return;
+    mapFrame.style.maxWidth    = img.naturalWidth + 'px';
+    mapFrame.style.aspectRatio = `${img.naturalWidth} / ${img.naturalHeight}`;
+    buildMap();
+    applyFilters();
+  };
+  img.onerror = () => {
+    mapImageLoading = false;
+    if (getActiveMapUrl() !== srcAtLoad) return;
+    mapFrame.style.aspectRatio = '1 / 1';
+  };
+  img.src = imgSrc;
+}
+
+const RACES = {
+  human:      { label: 'Human',      cls: 'race-human'      },
+  highelf:    { label: 'High Elf',   cls: 'race-highelf'    },
+  woodelf:    { label: 'Wood Elf',   cls: 'race-woodelf'    },
+  halfelf:    { label: 'Half-Elf',   cls: 'race-halfelf'    },
+  halforc:    { label: 'Half-Orc',   cls: 'race-halforc'    },
+  dwarf:      { label: 'Dwarf',      cls: 'race-dwarf'      },
+  halfling:   { label: 'Halfling',   cls: 'race-halfling'   },
+  gnome:      { label: 'Gnome',      cls: 'race-gnome'      },
+  goliath:    { label: 'Goliath',    cls: 'race-goliath'    },
+  dragonborn: { label: 'Dragonborn', cls: 'race-dragonborn' },
+  tiefling:   { label: 'Tiefling',   cls: 'race-tiefling'   },
+  owlbear:    { label: 'Owlbear',    cls: 'race-owlbear'    },
+  beast:      { label: 'Beast',      cls: 'race-beast'      },
+  construct:  { label: 'Construct',  cls: 'race-construct'  },
+  undead:     { label: 'Undead',     cls: 'race-undead'     },
+};
+
+function raceClass(r) {
+  if (RACES[r]) return RACES[r].cls;
+  // Unknown race: derive a stable CSS class from the name so each unknown
+  // race gets its own distinct filter bucket rather than collapsing into 'race-human'.
+  return 'race-' + (r || 'unknown').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function raceLabel(r) { return RACES[r]?.label || (r ? r.charAt(0).toUpperCase() + r.slice(1) : '—'); }
+
+// ─── MAP STATE ───────────────────────────────────────────────────────────────
+let HOUSE_MAP = {};
+let LOC_MAP   = {};
+let mapLabelsVisible = true;
+let mapEditMode = false;
+let activeDrag  = null;
+let premisesPlacementMode = false;
+let premisesPlacementId   = null;
+let ghostMarker           = null;
+let lastPointerX          = null;
+let lastPointerY          = null;
+let partyDragging         = false;
+let partyMarkerEl         = null;
+let _partyPosTimer        = null;
+
+function roundPos(v) { return Math.round(v * 1000) / 1000; }
+
+function initHouseMap() {
+  HOUSE_MAP = {};
+  Object.keys(HOUSE_MAP_DEFAULT).forEach(id => {
+    HOUSE_MAP[id] = { ...HOUSE_MAP_DEFAULT[id] };
+  });
+  const saved = activeMapIndex === 0
+    ? serverState.housePositions
+    : ((EXTRA_MAPS[activeMapIndex - 1] || {}).housePositions || {});
+  Object.keys(saved).forEach(id => {
+    const pos = saved[id];
+    if (pos && typeof pos.x === 'number' && typeof pos.y === 'number') {
+      HOUSE_MAP[id] = { x: roundPos(pos.x), y: roundPos(pos.y) };
+    }
+  });
+}
+
+function saveHouseMap() {
+  if (activeMapIndex === 0) {
+    serverState.housePositions = HOUSE_MAP;
+    pushState();
+  } else {
+    const em = EXTRA_MAPS[activeMapIndex - 1];
+    if (em) em.housePositions = { ...HOUSE_MAP };
+    saveTownContentToServer();
+  }
+}
+
+
+function toggleMapEditMode() {
+  if (mapEditMode && activeDrag) mapFramePointerUp();
+  mapEditMode = !mapEditMode;
+
+  const editBtn = document.getElementById('mapEditBtn');
+  if (editBtn) editBtn.textContent = mapEditMode ? 'Done editing' : 'Edit positions';
+
+  document.getElementById('mapPanel').classList.toggle('edit-mode', mapEditMode);
+
+  if (!mapEditMode) saveHouseMap();
+
+  buildMap();
+}
+
+function updateMarkerPosition(houseId, x, y) {
+  HOUSE_MAP[houseId] = {
+    x: roundPos(Math.max(0, Math.min(100, x))),
+    y: roundPos(Math.max(0, Math.min(100, y)))
+  };
+  saveHouseMap();
+}
+
+function initLocMap() {
+  if (typeof TOWN_LOCATIONS === 'undefined') return;
+  LOC_MAP = {};
+  const saved = activeMapIndex === 0
+    ? serverState.locPositions
+    : ((EXTRA_MAPS[activeMapIndex - 1] || {}).locPositions || {});
+  Object.keys(saved).forEach(id => {
+    const p = saved[id];
+    if (p && typeof p.x === 'number' && typeof p.y === 'number') {
+      LOC_MAP[id] = { x: roundPos(p.x), y: roundPos(p.y) };
+    }
+  });
+}
+
+function saveLocMap() {
+  // LOC_MAP holds the active map's positions (incl. its own '__hexgrid__' grid state and
+  // '__party__' marker). Persist to the right store: town_state for the main map, the
+  // extra_maps JSON for extra maps.
+  if (activeMapIndex === 0) {
+    serverState.locPositions = LOC_MAP;
+    pushState();
+  } else {
+    const em = EXTRA_MAPS[activeMapIndex - 1];
+    if (em) em.locPositions = { ...LOC_MAP };
+    saveTownContentToServer();
+  }
+}
+
+function goToMapLabel(locId) {
+  document.querySelectorAll('.loc-sb-item').forEach(el => el.classList.remove('active'));
+  const sbItem = document.getElementById('sbloc-' + locId);
+  if (sbItem) sbItem.classList.add('active');
+
+  const mapPanel = document.getElementById('mapPanel');
+  if (mapPanel) mapPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  document.querySelectorAll('.map-loc-label').forEach(el => el.classList.remove('loc-active'));
+  const labelEl = document.querySelector(`.map-loc-label[data-loc-id="${locId}"]`);
+  if (labelEl) {
+    setTimeout(() => {
+      labelEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      labelEl.classList.add('loc-active');
+      setTimeout(() => labelEl.classList.remove('loc-active'), 2000);
+    }, 300);
+  }
+}
+
+async function addTownLabel() {
+  const name = (prompt('Label name:') || '').trim();
+  if (!name) return;
+  const nextId = TOWN_LOCATIONS.reduce((m, l) => Math.max(m, Number(l.id) || 0), 0) + 1;
+  TOWN_LOCATIONS.push({ id: nextId, name });
+  await saveTownContentToServer();
+  rebuildContent();
+}
+
+async function removeTownLabel(locId, locName) {
+  if (!confirm(`Remove label "${locName}"?`)) return;
+  const idx = TOWN_LOCATIONS.findIndex(l => l.id === locId);
+  if (idx !== -1) TOWN_LOCATIONS.splice(idx, 1);
+  delete LOC_MAP[locId];
+  await saveTownContentToServer();
+  saveLocMap();
+  rebuildContent();
+}
+
+function updateLocPosition(locId, x, y) {
+  LOC_MAP[locId] = {
+    x: roundPos(Math.max(0, Math.min(100, x))),
+    y: roundPos(Math.max(0, Math.min(100, y)))
+  };
+  saveLocMap();
+}
+
+function mapFramePointerMove(event) {
+  lastPointerX = event.clientX;
+  lastPointerY = event.clientY;
+  if (!premisesPlacementMode && !activeDrag && !partyDragging) return;
+  const mapFrame = document.getElementById('mapFrame');
+  const rect = mapFrame.getBoundingClientRect();
+  if (partyDragging && IS_DM && rect.width > 0) {
+    const x = roundPos(Math.max(0, Math.min(100, ((event.clientX - rect.left) / rect.width)  * 100)));
+    const y = roundPos(Math.max(0, Math.min(100, ((event.clientY - rect.top)  / rect.height) * 100)));
+    LOC_MAP['__party__'] = { x, y };
+    renderPartyMarker();
+    clearTimeout(_partyPosTimer);
+    _partyPosTimer = setTimeout(saveLocMap, 300);
+  }
+  if (premisesPlacementMode && ghostMarker && rect.width > 0) {
+    ghostMarker.style.left = `${Math.max(0, Math.min(100, ((event.clientX - rect.left) / rect.width)  * 100))}%`;
+    ghostMarker.style.top  = `${Math.max(0, Math.min(100, ((event.clientY - rect.top)  / rect.height) * 100))}%`;
+  }
+  if (!activeDrag) return;
+  let x = ((event.clientX - rect.left) / rect.width) * 100;
+  let y = ((event.clientY - rect.top) / rect.height) * 100;
+  x = roundPos(Math.max(0, Math.min(100, x)));
+  y = roundPos(Math.max(0, Math.min(100, y)));
+  activeDrag.marker.style.left = `${x}%`;
+  activeDrag.marker.style.top  = `${y}%`;
+  activeDrag.current = { x, y };
+}
+
+function mapFramePointerUp(event) {
+  if (partyDragging) {
+    partyDragging = false;
+    partyMarkerEl?.classList.remove('dragging');
+    clearTimeout(_partyPosTimer);
+    saveLocMap();
+    return;
+  }
+  if (!activeDrag) return;
+  if (event && activeDrag.pointerId !== undefined && event.pointerId !== activeDrag.pointerId) return;
+  activeDrag.marker.classList.remove('dragging');
+  if (activeDrag.locId !== undefined) {
+    activeDrag.marker.classList.remove('unpositioned');
+    updateLocPosition(activeDrag.locId, activeDrag.current.x, activeDrag.current.y);
+  } else {
+    const { start, current } = activeDrag;
+    if (!start || current.x !== start.x || current.y !== start.y) {
+      updateMarkerPosition(activeDrag.houseId, current.x, current.y);
+    }
+  }
+  activeDrag = null;
+}
+
+window.addEventListener('pointermove',   mapFramePointerMove);
+window.addEventListener('pointerup',     mapFramePointerUp);
+window.addEventListener('pointercancel', () => {
+  if (activeDrag) { activeDrag.marker.classList.remove('dragging'); activeDrag = null; }
+  if (partyDragging) { partyDragging = false; partyMarkerEl?.classList.remove('dragging'); clearTimeout(_partyPosTimer); saveLocMap(); }
+});
+
+document.getElementById('mapFrame').addEventListener('click', e => {
+  if (!premisesPlacementMode) return;
+  const rect = e.currentTarget.getBoundingClientRect();
+  const x = roundPos(Math.max(0, Math.min(100, ((e.clientX - rect.left)  / rect.width)  * 100)));
+  const y = roundPos(Math.max(0, Math.min(100, ((e.clientY - rect.top)   / rect.height) * 100)));
+  finalizePremisesPlacement(x, y);
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    if (activeDrag) { activeDrag.marker.classList.remove('dragging'); activeDrag = null; }
+    else if (premisesPlacementMode) exitPremisesPlacementMode();
+  }
+});
+
+// ─── SEARCH ──────────────────────────────────────────────────────────────────
+const SEARCH_FIELDS = ['name','profession','race','gender','alignment','appearance','personality','notable','backstory'];
+
+function npcMatchesQuery(npc, terms) {
+  return terms.every(term =>
+    SEARCH_FIELDS.some(field => {
+      const val = npc[field];
+      return val && String(val).toLowerCase().includes(term);
+    })
+  );
+}
+
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function highlightTerms(text, terms) {
+  const safe = escHtml(text);
+  if (!terms.length) return safe;
+  const escaped = terms.map(t => escHtml(t).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  const regex = new RegExp(`(${escaped.join('|')})`, 'gi');
+  return safe.replace(regex, '<mark>$1</mark>');
+}
+
+function visibleHouses() {
+  return IS_DM ? HOUSEHOLDS : HOUSEHOLDS.filter(h => isHouseVisible(h.id));
+}
+
+function npcCountLabel(h) {
+  const n = (h.npcs || []).length;
+  return `${n} NPC${n !== 1 ? 's' : ''}`;
+}
+
+function buildNpcIndex() {
+  const index = [];
+  const houses = visibleHouses();
+  houses.forEach(h => {
+    const npcs = IS_DM
+      ? h.npcs
+      : h.npcs.filter(n => isNpcVisible(h.id, n.name));
+    npcs.forEach(npc => index.push({ npc, house: h }));
+  });
+  return index;
+}
+
+let npcIndex      = null;
+let selectedRaces = new Set();
+let visFilter     = 'all';   // 'all' | 'shown' | 'hidden'  (DM only)
+let focusedDdIndex = -1;
+let currentSelected = null;
+
+function clearSelection() {
+  if (currentSelected) {
+    currentSelected.npcCard?.classList.remove('search-selected');
+    currentSelected = null;
+  }
+  document.querySelectorAll('.map-marker.search-active').forEach(m => m.classList.remove('search-active'));
+}
+
+function expandHouseCard(houseCard) {
+  if (!houseCard) return;
+  houseCard.querySelector('.house-body')?.classList.add('open');
+  const toggle = houseCard.querySelector('.hh-toggle');
+  if (toggle) toggle.textContent = '▲';
+}
+
+function activateSidebarHouse(houseId) {
+  document.querySelectorAll('.house-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById('sbtn-' + houseId);
+  if (btn) {
+    btn.classList.add('active');
+    btn.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+}
+
+function selectNpc(npc, house) {
+  clearSelection();
+  const npcCard = document.querySelector(`.npc-card[data-npc-name="${CSS.escape(npc.name)}"]`);
+  if (!npcCard) return;
+
+  const houseCard = document.getElementById('house-' + house.id);
+  expandHouseCard(houseCard);
+
+  const cardBody = npcCard.querySelector('.npc-card-body');
+  cardBody?.classList.add('open');
+  cardBody?.querySelectorAll('textarea.npc-edit-field, textarea.npc-field-label').forEach(ta => { if (ta._resize) ta._resize(); });
+  const npcToggle = npcCard.querySelector('.npc-toggle');
+  if (npcToggle) npcToggle.textContent = '▲';
+
+  npcCard.classList.add('search-selected');
+  currentSelected = { npcCard };
+
+  const marker = document.querySelector(`.map-marker[data-house-id="${house.id}"]`);
+  if (marker) marker.classList.add('search-active');
+
+  activateSidebarHouse(house.id);
+  setTimeout(() => npcCard.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80);
+}
+
+function selectLocFromSearch(loc) {
+  clearSelection();
+  const item = document.getElementById('sbloc-' + loc.id);
+  if (!item) return;
+  item.classList.add('loc-search-highlight');
+  item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  setTimeout(() => item.classList.remove('loc-search-highlight'), 1500);
+}
+
+function selectHouseFromSearch(house) {
+  clearSelection();
+  const marker = document.querySelector(`.map-marker[data-house-id="${house.id}"]`);
+  if (marker) marker.classList.add('search-active');
+  activateSidebarHouse(house.id);
+  const houseCard = document.getElementById('house-' + house.id);
+  expandHouseCard(houseCard);
+  if (houseCard) setTimeout(() => houseCard.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+}
+
+function closeDropdown() {
+  const dd = document.getElementById('searchDropdown');
+  dd.classList.remove('open');
+  dd.innerHTML = '';
+  focusedDdIndex = -1;
+}
+
+function openDropdown(terms, matches) {
+  const dd    = document.getElementById('searchDropdown');
+  const input = document.getElementById('npcSearchInput');
+  dd.innerHTML = '';
+  focusedDdIndex = -1;
+
+  if (matches.length === 0) {
+    dd.innerHTML = `<div class="dd-empty">No results match "${escHtml(terms.join(' '))}"</div>`;
+    dd.classList.add('open');
+    input.classList.remove('has-results');
+    input.classList.add('no-results');
+    return;
+  }
+
+  input.classList.remove('no-results');
+  input.classList.add('has-results');
+
+  matches.forEach((match, i) => {
+    const item = document.createElement('div');
+    item.className = 'dd-item';
+    item.dataset.index = i;
+    if (match.type === 'house') {
+      const h = match.house;
+      item.innerHTML = `
+        <span class="race-badge loc-badge">LOC</span>
+        <span class="dd-name">${highlightTerms(h.name, terms)}</span>
+        ${IS_DM ? `<span class="dd-sub">${npcCountLabel(h)}</span>` : ''}
+        ${IS_DM ? `<span class="dd-house">#${escHtml(h.id)}</span>` : ''}`;
+      item.addEventListener('mousedown', e => {
+        e.preventDefault();
+        selectHouseFromSearch(h);
+        input.value = h.name;
+        closeDropdown();
+      });
+    } else if (match.type === 'loc') {
+      const loc = match.loc;
+      item.innerHTML = `
+        <span class="race-badge" style="background:#2a1e08;color:#a08040;font-size:0.58rem;letter-spacing:0.06em">AREA</span>
+        <span class="dd-name">${highlightTerms(loc.name, terms)}</span>`;
+      item.addEventListener('mousedown', e => {
+        e.preventDefault();
+        selectLocFromSearch(loc);
+        input.value = loc.name;
+        closeDropdown();
+      });
+    } else {
+      const { npc, house } = match;
+      item.innerHTML = `
+        <span class="race-badge ${raceClass(npc.race)}">${escHtml(raceLabel(npc.race))}</span>
+        <span class="dd-name">${highlightTerms(npc.name, terms)}</span>
+        <span class="dd-sub">${escHtml(npc.profession || '')}</span>
+        ${IS_DM ? `<span class="dd-house">${house.virtual ? escHtml(house.name) : '#' + escHtml(house.id)}</span>` : ''}`;
+      item.addEventListener('mousedown', e => {
+        e.preventDefault();
+        selectNpc(npc, house);
+        input.value = npc.name;
+        closeDropdown();
+      });
+    }
+    dd.appendChild(item);
+  });
+
+  dd.classList.add('open');
+}
+
+function updateFocusedItem(newIndex) {
+  const items = document.querySelectorAll('.dd-item');
+  if (!items.length) return;
+  items.forEach(item => item.classList.remove('focused'));
+  focusedDdIndex = Math.max(0, Math.min(newIndex, items.length - 1));
+  items[focusedDdIndex]?.classList.add('focused');
+  items[focusedDdIndex]?.scrollIntoView({ block: 'nearest' });
+}
+
+function initSearch() {
+  npcIndex = buildNpcIndex();
+  const input = document.getElementById('npcSearchInput');
+
+  function doSearch() {
+    const terms = input.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    input.classList.remove('has-results', 'no-results');
+    clearSelection();
+    if (!terms.length) { closeDropdown(); return; }
+    const housesToSearch = visibleHouses();
+    const houseMatches = housesToSearch
+      .filter(h => terms.every(t => h.name.toLowerCase().includes(t)))
+      .map(h => ({ type: 'house', house: h }));
+    const npcMatches = npcIndex
+      .filter(({ npc }) => npcMatchesQuery(npc, terms))
+      .map(x => ({ type: 'npc', ...x }));
+    const locMatches = (typeof TOWN_LOCATIONS !== 'undefined' ? TOWN_LOCATIONS : [])
+      .filter(l => terms.every(t => l.name.toLowerCase().includes(t)))
+      .map(l => ({ type: 'loc', loc: l }));
+    openDropdown(terms, [...houseMatches, ...npcMatches, ...locMatches]);
+  }
+
+  input.addEventListener('input', doSearch);
+  input.addEventListener('focus', () => { if (input.value.trim()) doSearch(); });
+
+  input.addEventListener('keydown', e => {
+    const items = document.querySelectorAll('.dd-item');
+    if (e.key === 'ArrowDown') { e.preventDefault(); updateFocusedItem(focusedDdIndex + 1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); updateFocusedItem(focusedDdIndex - 1); }
+    else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (focusedDdIndex >= 0 && items[focusedDdIndex]) {
+        items[focusedDdIndex].dispatchEvent(new MouseEvent('mousedown'));
+      }
+    } else if (e.key === 'Escape') {
+      input.value = '';
+      input.classList.remove('has-results', 'no-results');
+      closeDropdown();
+      clearSelection();
+    }
+  });
+
+  document.addEventListener('mousedown', e => {
+    const wrapper = document.getElementById('searchWrapper');
+    if (wrapper && !wrapper.contains(e.target)) closeDropdown();
+  });
+}
+
+// ─── MAP RENDERING ───────────────────────────────────────────────────────────
+function buildMap() {
+  const mapFrame = document.getElementById('mapFrame');
+  applyMapImage();
+  const existingGhost = mapFrame.querySelector('.map-marker.ghost');
+  mapFrame.innerHTML = '';
+  mountHexGrid();   // hex overlay first (under markers); re-added after the frame is cleared
+  if (existingGhost) mapFrame.appendChild(existingGhost);
+  if (partyMarkerEl) { mapFrame.appendChild(partyMarkerEl); renderPartyMarker(); }
+
+  const houses = visibleHouses();
+  const mapTip = document.getElementById('map-tooltip');
+
+  houses.forEach(h => {
+    const pos = HOUSE_MAP[h.id];
+    if (!pos) return;
+
+    const marker = document.createElement('button');
+    marker.className = 'map-marker';
+    marker.type = 'button';
+    marker.dataset.houseId = h.id;
+    marker.style.left = `${pos.x}%`;
+    marker.style.top  = `${pos.y}%`;
+
+    if (IS_DM && !isHouseVisible(h.id)) marker.classList.add('mk-hidden');
+
+    marker.onclick = () => { if (!mapEditMode) selectHouseOnMap(h.id, true); };
+
+    marker.onpointerdown = event => {
+      if (!mapEditMode || event.button !== 0) return;
+      event.preventDefault();
+      activeDrag = { houseId: h.id, marker, start: { x: pos.x, y: pos.y }, current: { x: pos.x, y: pos.y }, pointerId: event.pointerId };
+      marker.classList.add('dragging');
+    };
+
+    if (mapEditMode) marker.classList.add('editable');
+
+    const label = document.createElement('span');
+    label.className = 'map-label';
+    label.textContent = h.name;
+    if (mapLabelsVisible) label.classList.add('visible');
+    marker.appendChild(label);
+    marker.addEventListener('mouseenter', e => {
+      if (!mapTip) return;
+      mapTip.textContent = IS_DM ? `#${h.id} · ${h.name}` : h.name;
+      mapTip.style.left = (e.clientX + 14) + 'px';
+      mapTip.style.top  = (e.clientY - 32) + 'px';
+      mapTip.classList.add('visible');
+    });
+    marker.addEventListener('mousemove', e => {
+      if (!mapTip) return;
+      mapTip.style.left = (e.clientX + 14) + 'px';
+      mapTip.style.top  = (e.clientY - 32) + 'px';
+    });
+    marker.addEventListener('mouseleave', () => {
+      mapTip?.classList.remove('visible');
+    });
+
+    mapFrame.appendChild(marker);
+  });
+
+  // Town location labels (districts, streets, landmarks)
+  if (typeof TOWN_LOCATIONS !== 'undefined') {
+    TOWN_LOCATIONS.forEach((loc, idx) => {
+      const hasPos = LOC_MAP[loc.id];
+      if (!hasPos && !mapEditMode) return;
+
+      const label = document.createElement('div');
+      label.className = 'map-loc-label';
+      label.textContent = loc.name;
+      label.dataset.locId = loc.id;
+
+      if (hasPos) {
+        label.style.left = `${hasPos.x}%`;
+        label.style.top  = `${hasPos.y}%`;
+      } else {
+        // In edit mode, stack unpositioned labels at the left edge
+        label.style.left = '3%';
+        label.style.top  = `${4 + idx * 4}%`;
+        label.classList.add('unpositioned');
+      }
+
+      if (mapEditMode) {
+        label.classList.add('editable');
+        label.onpointerdown = event => {
+          if (event.button !== 0) return;
+          event.preventDefault();
+          const pos = LOC_MAP[loc.id] || { x: 3, y: 4 + idx * 4 };
+          activeDrag = { locId: loc.id, marker: label, start: { ...pos }, current: { ...pos }, pointerId: event.pointerId };
+          label.classList.add('dragging');
+        };
+      }
+
+      mapFrame.appendChild(label);
+    });
+  }
+  renderTokens();   // token instances sit above markers/labels
+}
+
+function goToMapAndSelectHouse(houseId) {
+  const mapPanel = document.getElementById('mapPanel');
+  if (mapPanel) mapPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  selectHouseOnMap(houseId, false);
+}
+
+function selectHouseOnMap(houseId, scrollHouse = false) {
+  document.querySelectorAll('.map-marker').forEach(marker => {
+    marker.classList.toggle('active', marker.dataset.houseId === String(houseId));
+  });
+  const houseCard = document.getElementById('house-' + houseId);
+  expandHouseCard(houseCard);
+  if (scrollHouse) {
+    if (houseCard) setTimeout(() => houseCard.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80);
+  }
+}
+
+function setMapLabelsVisible(visible) {
+  mapLabelsVisible = visible;
+  document.querySelectorAll('.map-label').forEach(l => {
+    const marker = l.closest('.map-marker');
+    const hidden = marker && marker.classList.contains('disabled');
+    l.classList.toggle('visible', visible && !hidden);
+  });
+  const btn = document.getElementById('mapLabelsBtn');
+  if (btn) btn.textContent = visible ? 'Hide locations' : 'Show locations';
+}
+
+// ─── SIDEBAR ─────────────────────────────────────────────────────────────────
+function buildSidebar() {
+  const sb = document.getElementById('sidebar');
+
+  const houses = visibleHouses();
+
+  houses.forEach(h => {
+    if (h.virtual) return; // virtual households are DM-only and have no map marker
+    const row = document.createElement('div');
+    row.className = 'sb-row';
+    row.dataset.sbHouseId = h.id;
+
+    const btn = document.createElement('button');
+    btn.className = 'house-btn';
+    btn.id = 'sbtn-' + h.id;
+    btn.dataset.houseId = h.id;
+    if (IS_DM && !isHouseVisible(h.id)) btn.classList.add('sb-hidden');
+    btn.innerHTML = `
+      ${IS_DM ? `<span class="hb-num">#${escHtml(h.id)}</span>` : ''}
+      <span class="hb-info">
+        <span class="hb-name">${escHtml(h.name)}</span>
+        ${IS_DM ? `<span class="hb-detail">${npcCountLabel(h)}</span>` : ''}
+      </span>`;
+    btn.onclick = () => {
+      document.querySelectorAll('.house-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      selectHouseOnMap(h.id, false);
+      setTimeout(() => document.getElementById('house-' + h.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+    };
+    row.appendChild(btn);
+
+    if (IS_DM) {
+      row.appendChild(_buildMigrateDropdown('house', h.id, h.name));
+    }
+
+    sb.appendChild(row);
+  });
+
+  if (typeof TOWN_LOCATIONS !== 'undefined' && TOWN_LOCATIONS.length > 0) {
+    const sec = document.createElement('div');
+    sec.className = 'sidebar-section sb-loc-section';
+    sec.textContent = 'Locations';
+    sb.appendChild(sec);
+
+    TOWN_LOCATIONS.forEach(loc => {
+      const item = document.createElement('div');
+      item.className = 'loc-sb-item';
+      item.id = 'sbloc-' + loc.id;
+      item.innerHTML = `<span class="ls-name">${escHtml(loc.name)}</span>`;
+      item.addEventListener('click', () => goToMapLabel(loc.id));
+      if (IS_DM) {
+        item.appendChild(_buildMigrateDropdown('label', loc.id, loc.name));
+      }
+      sb.appendChild(item);
+    });
+  }
+}
+
+// ─── NPC NOTES (shared with the NPC tool) ────────────────────────────────────
+// Inline attachment preview: image → click to zoom; PDF → open in a new tab.
+function renderMapAttachment(row, att, onRemove) {
+  row.innerHTML = '';
+  if (!att || !att.url) return;
+  row.style.marginTop = '0.35rem';
+  if (att.type === 'image') {
+    const img = document.createElement('img');
+    img.src = att.url; img.title = att.name || '';
+    img.style.cssText = 'max-height:88px;max-width:150px;border-radius:4px;border:1px solid var(--parchment3);cursor:zoom-in;display:block';
+    img.onclick = e => { e.stopPropagation(); openNpcZoomModal(att.url, att.name || 'Attachment'); };
+    row.appendChild(img);
+  } else {
+    const a = document.createElement('a');
+    if (/^(https?:\/\/|\/)/.test(att.url)) a.href = att.url;
+    a.target = '_blank'; a.rel = 'noopener';
+    a.textContent = '📄 ' + (att.name || 'Open PDF');
+    a.style.cssText = "font-family:'Cinzel',serif;font-size:0.72rem;color:#a33;text-decoration:none;border:1px solid rgba(180,40,40,0.35);border-radius:3px;padding:3px 8px;display:inline-block";
+    a.onclick = e => e.stopPropagation();
+    row.appendChild(a);
+  }
+  if (onRemove) {
+    const rm = document.createElement('button');
+    rm.type = 'button'; rm.textContent = 'Remove file';
+    rm.style.cssText = "margin-left:0.5rem;font-family:'Cinzel',serif;font-size:0.58rem;background:none;border:1px solid transparent;color:var(--ink3);cursor:pointer";
+    rm.onclick = e => { e.stopPropagation(); onRemove(); };
+    row.appendChild(rm);
+  }
+}
+
+function buildPlayerNotesSection(notes) {
+  const sec = document.createElement('div');
+  sec.className = 'npc-player-notes-section';
+  sec.style.cssText = 'padding:0.2rem 0.9rem 0.7rem;border-top:1px solid var(--parchment3)';
+  const head = document.createElement('div');
+  head.style.cssText = "font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink3);margin:0.5rem 0 0.4rem";
+  head.textContent = 'DM Notes';
+  sec.appendChild(head);
+  notes.forEach(n => {
+    const item = document.createElement('div');
+    item.style.marginBottom = '0.55rem';
+    item.innerHTML = `<strong style="font-size:0.75rem;color:var(--ink2)">${escHtml(n.label)}</strong>`
+      + `<div style="font-size:0.82rem;color:var(--ink2);line-height:1.5;margin-top:2px;white-space:pre-wrap">${escHtml(n.value)}</div>`;
+    const attRow = document.createElement('div');
+    renderMapAttachment(attRow, n.attachment, null);
+    item.appendChild(attRow);
+    sec.appendChild(item);
+  });
+  return sec;
+}
+
+function pickMapAttachment(npcId, note, repaint, afterSave) {
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = 'image/*,application/pdf';
+  input.onchange = () => {
+    const file = input.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      fetch(`/api/npc-sheet/${npcId}/note-attachment`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ noteId: note.id, dataUrl: reader.result, filename: file.name })
+      }).then(r => r.json()).then(d => {
+        if (d && d.ok && d.attachment) { note.attachment = d.attachment; repaint(); afterSave(); }
+        else if (d && d.error) alert('Attachment failed: ' + d.error);
+      }).catch(() => {});
+    };
+    reader.readAsDataURL(file);
+  };
+  input.click();
+}
+
+function deleteMapAttachment(npcId, url) {
+  if (!url) return;
+  fetch(`/api/npc-sheet/${npcId}/note-attachment-delete`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url })
+  }).catch(() => {});
+}
+
+// One NPC's notes — the SAME notes as the NPC tool. Rendered split across the
+// card's Player View (shared notes) and DM Only (hidden notes) sections; each
+// note's toggle moves it between them. Lazy-loads the sheet notes on first expand.
+function makeNotesController(npc) {
+  let notes = null, loaded = false, saveTimer = null, dirty = false;
+  const areas = { player: null, dm: null };   // { wrap, list, addBtn, loadingEl }
+
+  function save(immediate) {
+    dirty = true;
+    const doSave = () => {
+      saveTimer = null;
+      fetch(`/api/npc-sheet/${npc.npcId}/notes`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes })
+      }).then(() => { dirty = false; }).catch(() => {});
+    };
+    clearTimeout(saveTimer);
+    if (immediate) doSave(); else saveTimer = setTimeout(doSave, 500);
+  }
+
+  // Re-place every note under its section (shared → player, hidden → dm).
+  function renderAll() {
+    if (!notes) return;
+    ['player', 'dm'].forEach(k => { if (areas[k]) areas[k].list.innerHTML = ''; });
+    notes.forEach(note => {
+      const k = note.shared ? 'player' : 'dm';
+      if (areas[k]) areas[k].list.appendChild(makeRow(note));
+    });
+  }
+
+  // Rendered in the same style as the NPC fields (no box, small-caps label,
+  // transparent textarea) with a share toggle, a picture button and remove.
+  function makeRow(note) {
+    if (note.attachment === undefined) note.attachment = null;
+    const item = document.createElement('div');
+    item.className = 'nne-row';
+    item.style.cssText = 'margin-bottom:0.6rem';
+    item.innerHTML = `
+      <div style="display:flex;gap:0.35rem;align-items:center">
+        <input class="npc-field-label nne-label" type="text" value="${escHtml(note.label || '')}" style="flex:1;width:auto;min-height:0;height:1.7em">
+        <button type="button" class="nne-share" style="font-family:'Cinzel',serif;font-size:0.56rem;letter-spacing:0.04em;padding:2px 7px;border-radius:2px;cursor:pointer;white-space:nowrap"></button>
+        <button type="button" class="nne-pic" title="Attach image / PDF" style="font-size:0.72rem;background:none;border:1px solid transparent;border-radius:3px;cursor:pointer;color:var(--ink3);padding:1px 5px">🖼</button>
+        <button type="button" class="npc-field-remove nne-remove" title="Remove note" style="margin-top:0;align-self:center">✕</button>
+      </div>
+      <textarea class="npc-edit-field nne-value">${escHtml(note.value || '')}</textarea>
+      <div class="nne-att" style="margin-top:0.3rem"></div>`;
+    const labelEl = item.querySelector('.nne-label');
+    const valueEl = item.querySelector('.nne-value');
+    const shareEl = item.querySelector('.nne-share');
+    const picEl   = item.querySelector('.nne-pic');
+    const removeEl = item.querySelector('.nne-remove');
+    const attEl = item.querySelector('.nne-att');
+
+    function paintShare() {   // Hidden = red, Shared = green
+      shareEl.textContent = note.shared ? '● Shared' : '○ Hidden';
+      shareEl.style.border = '1px solid ' + (note.shared ? 'rgba(60,160,80,0.8)' : 'rgba(180,60,60,0.6)');
+      shareEl.style.background = note.shared ? 'rgba(60,160,80,0.22)' : 'rgba(180,60,60,0.14)';
+      shareEl.style.color = note.shared ? '#3f8f57' : '#c85a5a';
+    }
+    function paintAtt() {
+      attEl.innerHTML = '';
+      if (note.attachment && note.attachment.url) {
+        renderMapAttachment(attEl, note.attachment, () => {
+          const url = note.attachment.url;
+          note.attachment = null; paintAtt();
+          deleteMapAttachment(npc.npcId, url); save(true);
+        });
+      }
+    }
+    paintShare(); paintAtt();
+
+    labelEl.oninput = () => { note.label = labelEl.value; save(); };
+    valueEl.oninput = () => { note.value = valueEl.value; save(); };
+    // Toggle moves the note between the Player View and DM Only sections.
+    shareEl.onclick = e => { e.stopPropagation(); note.shared = !note.shared; save(true); renderAll(); };
+    picEl.onclick   = e => { e.stopPropagation(); pickMapAttachment(npc.npcId, note, paintAtt, () => save(true)); };
+    removeEl.onclick = e => {
+      e.stopPropagation();
+      if (note.attachment && note.attachment.url) deleteMapAttachment(npc.npcId, note.attachment.url);
+      notes = notes.filter(n => n !== note);
+      save(true); renderAll();
+    };
+    return item;
+  }
+
+  function addNote(shared) {
+    if (!loaded) return;
+    notes.push({ id: Date.now() + Math.floor(Math.random() * 1000), label: 'New Note', value: '', shared, attachment: null });
+    save(true); renderAll();
+  }
+
+  // Notes sub-area appended inside a card section (player = shared, dm = hidden).
+  function buildArea(sectionKey) {
+    const wrap = document.createElement('div');
+    wrap.className = 'npc-notes-area';
+    wrap.style.cssText = 'margin-top:0.5rem';
+    const list = document.createElement('div');
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.textContent = sectionKey === 'player' ? '+ Add shared note' : '+ Add hidden note';
+    addBtn.style.cssText = "display:none;font-family:'Cinzel',serif;font-size:0.6rem;padding:3px 9px;border-radius:3px;cursor:pointer;border:1px dashed var(--parchment3);background:rgba(255,248,235,0.4);color:var(--ink3)";
+    addBtn.onclick = e => { e.stopPropagation(); addNote(sectionKey === 'player'); };
+    const loadingEl = document.createElement('div');
+    loadingEl.textContent = 'Loading notes…';
+    loadingEl.style.cssText = 'font-size:0.72rem;color:var(--ink3);font-style:italic';
+    wrap.appendChild(list); wrap.appendChild(addBtn); wrap.appendChild(loadingEl);
+    wrap.addEventListener('click', e => e.stopPropagation());
+    areas[sectionKey] = { wrap, list, addBtn, loadingEl };
+    return wrap;
+  }
+
+  function mapNotes(list) {
+    return (Array.isArray(list) ? list : []).map(n => {
+      if (n.shared === undefined) n.shared = !!n.sentToPlayers;
+      delete n.sentToPlayers;
+      if (n.attachment === undefined) n.attachment = null;
+      return n;
+    });
+  }
+
+  function load() {
+    if (loaded) return;
+    loaded = true;
+    fetch(`/api/npc-sheet/${npc.npcId}`).then(r => r.json()).then(d => {
+      notes = mapNotes(d && d.sheet && d.sheet.notes);
+      ['player', 'dm'].forEach(k => { if (areas[k]) { areas[k].loadingEl.style.display = 'none'; areas[k].addBtn.style.display = ''; } });
+      renderAll();
+    }).catch(() => { loaded = false; ['player', 'dm'].forEach(k => { if (areas[k]) areas[k].loadingEl.textContent = 'Failed to load notes.'; }); });
+  }
+
+  // Live-refresh from the server after a change made in the other tool.
+  function refresh() {
+    if (!loaded) return;
+    fetch(`/api/npc-sheet/${npc.npcId}`).then(r => r.json()).then(d => {
+      if (d && d.sheet && Array.isArray(d.sheet.notes)) { notes = mapNotes(d.sheet.notes); renderAll(); }
+    }).catch(() => {});
+  }
+
+  function flush() {
+    if (!dirty || notes === null) return;
+    clearTimeout(saveTimer); saveTimer = null;
+    dirty = false;
+    navigator.sendBeacon(
+      `/api/npc-sheet/${npc.npcId}/notes`,
+      new Blob([JSON.stringify({ notes })], { type: 'application/json' })
+    );
+  }
+
+  const ctl = { buildArea, load, refresh, flush };
+  activeNotesControllers.add(ctl);
+  return ctl;
+}
+
+// ─── NPC + HOUSE BUILDERS ────────────────────────────────────────────────────
+function buildNPC(npc, houseId, isVirtualHouse) {
+  const div = document.createElement('div');
+  div.className = 'npc-card';
+  div.dataset.npcName = npc.name;
+  if (IS_DM && !isVirtualHouse && !isNpcVisible(houseId, npc.name)) div.classList.add('dm-hidden');
+
+  // Sections now hold only notes (shared → Player View, hidden → DM Only).
+  // The old per-NPC fields have been folded into the notes system.
+  function makeSection(sectionKey, sectionLabel) {
+    const sec = document.createElement('div');
+    sec.className = 'npc-section ' + (sectionKey === 'player' ? 'player-section' : 'dm-section');
+    const hdr = document.createElement('div');
+    hdr.className = 'npc-section-label';
+    hdr.textContent = sectionLabel;
+    sec.appendChild(hdr);
+    if (IS_DM && notesCtl) sec.appendChild(notesCtl.buildArea(sectionKey));
+    return sec;
+  }
+
+  const slug = npcSlug(npc.name);
+  const noteData = npcPlayerNotes[slug];
+
+  div.innerHTML = `
+    <div class="npc-card-header">
+      <span class="race-badge ${raceClass(npc.race)}">${escHtml(raceLabel(npc.race))}</span>
+      <span class="npc-name-block">
+        <span class="npc-name">${escHtml(npc.name)}</span>
+        <span class="npc-role"${IS_DM && !isVirtualHouse ? ' contenteditable="true" title="Click to edit profession"' : ''}>${escHtml(npc.profession ?? '')}</span>
+      </span>
+      <span class="npc-age">${npc.age != null ? escHtml(String(npc.age)) : '—'}</span>
+      <span class="npc-toggle" style="margin-left:6px;font-size:0.7rem;color:var(--ink3)">▼</span>
+    </div>`;
+
+  if (IS_DM && !isVirtualHouse) {
+    const roleEl = div.querySelector('.npc-role');
+    roleEl.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); roleEl.blur(); } });
+    roleEl.addEventListener('blur', () => {
+      const val = roleEl.textContent.trim();
+      if (val === (npc.profession ?? '')) return;
+      npc.profession = val || undefined;
+      saveTownContentToServer();
+    });
+    roleEl.addEventListener('click', e => e.stopPropagation());
+  }
+
+  const body = document.createElement('div');
+  body.className = 'npc-card-body';
+
+  // DM notes live inside the sections below — shared notes under Player View,
+  // hidden notes under DM Only — the same notes as the NPC tool. Each note's
+  // toggle moves it between the two. Players see the shared subset read-only.
+  // Fall back to the name→id map when the town content defined the NPC without an id.
+  if (!npc.npcId && npcIdByName[npc.name]) npc.npcId = npcIdByName[npc.name];
+  const notesCtl = (IS_DM && npc.npcId) ? makeNotesController(npc) : null;
+
+  if (IS_DM) {
+    body.appendChild(makeSection('player', 'Player View'));
+    body.appendChild(makeSection('dm', 'DM Only'));
+  }
+  // Players: shared notes are shown read-only in buildPlayerNotesSection below.
+
+  div.appendChild(body);
+
+  if (!IS_DM && noteData && noteData.notes && noteData.notes.length > 0) {
+    div.appendChild(buildPlayerNotesSection(noteData.notes));
+  }
+
+  const header = div.querySelector('.npc-card-header');
+
+  // DM sees portrait for any NPC with an image; players only see portraits sent via button.
+  const portraitSrc = IS_DM ? (npcImages[slug] || null) : (noteData?.image || null);
+  if (portraitSrc) {
+    const thumb = document.createElement('img');
+    thumb.className = 'npc-portrait-thumb';
+    thumb.src = portraitSrc;
+    thumb.alt = '';
+    thumb.title = 'View portrait';
+    thumb.onclick = e => { e.stopPropagation(); openNpcZoomModal(portraitSrc, npc.name); };
+    const nameBlock = header.querySelector('.npc-name-block');
+    header.insertBefore(thumb, nameBlock);
+  }
+
+  header.onclick = () => {
+    body.classList.toggle('open');
+    div.querySelector('.npc-toggle').textContent = body.classList.contains('open') ? '▲' : '▼';
+    if (body.classList.contains('open')) {
+      body.querySelectorAll('textarea.npc-edit-field, textarea.npc-field-label').forEach(ta => { if (ta._resize) ta._resize(); });
+      if (notesCtl) notesCtl.load();
+    }
+  };
+
+  // DM-only: button to open NPC sheet in new tab
+  if (IS_DM) {
+    const sheetBtn = document.createElement('button');
+    sheetBtn.type = 'button';
+    sheetBtn.className = 'house-map-btn';
+    sheetBtn.textContent = 'Sheet';
+    sheetBtn.title = 'Open NPC sheet';
+    sheetBtn.onclick = e => {
+      e.stopPropagation();
+      window.open(npcToolUrl({ npc: npc.name, town: TOWN_SLUG_API }), '_blank');
+    };
+    header.insertBefore(sheetBtn, div.querySelector('.npc-toggle'));
+  }
+
+  if (IS_DM && !isVirtualHouse) {
+    const visBtn = document.createElement('button');
+    visBtn.type = 'button';
+    visBtn.className = 'show-player-btn npc-player-btn';
+    const houseHidden = !isHouseVisible(houseId);
+    const vis = isNpcVisible(houseId, npc.name);
+    visBtn.textContent = vis ? '● Revealed' : '○ Hidden';
+    if (vis) visBtn.classList.add('is-visible');
+    visBtn.disabled = houseHidden;
+    visBtn.onclick = e => { e.stopPropagation(); toggleNpcVisibility(houseId, npc.name); };
+    header.insertBefore(visBtn, div.querySelector('.npc-toggle'));
+  }
+
+  return div;
+}
+
+function buildHouse(h) {
+  const card = document.createElement('div');
+  card.className = 'house-card';
+  card.id = 'house-' + h.id;
+  if (h.virtual) card.dataset.virtual = 'true';
+  if (IS_DM && !h.virtual && !isHouseVisible(h.id)) card.classList.add('dm-hidden');
+
+  const header = document.createElement('div');
+  header.className = 'house-header';
+  header.innerHTML = `
+    ${IS_DM ? `<span class="hh-num">${h.virtual ? '' : '#' + escHtml(h.id)}</span>` : ''}
+    <span class="hh-name">${escHtml(h.name)}</span>
+    ${IS_DM ? `<span class="hh-count">${npcCountLabel(h)}</span>` : ''}
+    <span class="hh-toggle">▼</span>`;
+
+  if (!h.virtual) {
+    // Map button
+    const mapBtn = document.createElement('button');
+    mapBtn.className = 'house-map-btn';
+    mapBtn.type = 'button';
+    mapBtn.textContent = 'Map';
+    mapBtn.onclick = e => { e.stopPropagation(); goToMapAndSelectHouse(h.id); };
+    header.insertBefore(mapBtn, header.querySelector('.hh-toggle'));
+
+    // DM mode: Show Player toggle
+    if (IS_DM) {
+      const visBtn = document.createElement('button');
+      visBtn.className = 'show-player-btn house-player-btn';
+      const vis = isHouseVisible(h.id);
+      visBtn.textContent = vis ? '● Visible to Players' : '○ Hidden from Players';
+      if (vis) visBtn.classList.add('is-visible');
+      visBtn.onclick = e => { e.stopPropagation(); toggleHouseVisibility(h.id); };
+      header.insertBefore(visBtn, header.querySelector('.hh-toggle'));
+    }
+  }
+
+  const body = document.createElement('div');
+  body.className = IS_DM ? 'house-body' : 'house-body open';
+
+  const desc = document.createElement('p');
+  desc.className = 'house-desc';
+  desc.textContent = h.desc;
+
+  const grid = document.createElement('div');
+  grid.className = 'npc-grid';
+
+  // In player mode, only show visible NPCs
+  const npcsToShow = IS_DM
+    ? h.npcs
+    : h.npcs.filter(n => isNpcVisible(h.id, n.name));
+  npcsToShow.forEach(npc => grid.appendChild(buildNPC(npc, h.id, h.virtual)));
+
+  body.appendChild(desc);
+  body.appendChild(grid);
+
+  header.onclick = () => {
+    body.classList.toggle('open');
+    header.querySelector('.hh-toggle').textContent = body.classList.contains('open') ? '▲' : '▼';
+  };
+
+  card.appendChild(header);
+  card.appendChild(body);
+  return card;
+}
+
+// ─── FILTER + CONTENT REBUILD ────────────────────────────────────────────────
+function applyFilters() {
+  const filters = [...selectedRaces];
+  const showAll  = filters.length === 0;
+
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.classList.toggle('active',
+      btn.dataset.race === '__all__' ? showAll : selectedRaces.has(btn.dataset.race));
+  });
+
+  document.querySelectorAll('.npc-card').forEach(card => {
+    const badge = card.querySelector('.race-badge');
+    const match  = showAll || filters.some(r => badge && badge.classList.contains(raceClass(r)));
+    card.style.display = match ? '' : 'none';
+  });
+
+  document.querySelectorAll('.house-card').forEach(house => {
+    const hid = house.id.replace('house-', '');
+    const cards = [...house.querySelectorAll('.npc-card')];
+    const isVirtual = house.dataset.virtual === 'true';
+    let anyVisible;
+    if (IS_DM) {
+      // DM: always show premises (even empty ones); filter by race only when a filter is active
+      anyVisible = showAll || cards.some(c => c.style.display !== 'none');
+      // Virtual households (unplaced NPCs) always visible to DM; skip the vis filter
+      if (!isVirtual && anyVisible && visFilter !== 'all') {
+        const revealed = isHouseVisible(hid);
+        if (visFilter === 'shown')  anyVisible = revealed;
+        if (visFilter === 'hidden') anyVisible = !revealed;
+      }
+    } else {
+      // Player: rebuildContent already filtered to visible houses only.
+      // Show with no filter; with a race filter, hide if no NPC cards match.
+      anyVisible = showAll || cards.some(c => c.style.display !== 'none');
+    }
+    house.style.display = anyVisible ? '' : 'none';
+    const sbRow = document.querySelector(`.sb-row[data-sb-house-id="${hid}"]`);
+    if (sbRow) sbRow.style.display = anyVisible ? '' : 'none';
+    const marker = document.querySelector(`.map-marker[data-house-id="${hid}"]`);
+    if (marker) { marker.classList.toggle('disabled', !anyVisible); marker.disabled = !anyVisible; }
+  });
+}
+
+function updateHeaderStats() {
+  if (IS_DM) {
+    document.getElementById('statHomes').textContent     = TOWN_TOTAL_HOMES;
+    document.getElementById('statResidents').textContent = TOWN_TOTAL_RESIDENTS;
+    document.getElementById('statLogged').textContent    = HOUSEHOLDS.filter(h => !h.virtual).length;
+  } else {
+    const houses = visibleHouses();
+    const visibleResidents = houses
+      .flatMap(h => h.npcs.filter(n => isNpcVisible(h.id, n.name))).length;
+    document.getElementById('statHomes').textContent     = houses.length;
+    document.getElementById('statResidents').textContent = visibleResidents;
+    document.getElementById('statHomesLabel').textContent     = 'Known';
+    document.getElementById('statResidentsLabel').textContent = 'Residents';
+    document.getElementById('statLoggedWrap').style.display   = 'none';
+  }
+}
+
+// Light in-place update for players when only NPC field values changed (not visibility).
+// Updates .npc-value spans without rebuilding the DOM, so scroll position is preserved.
+// Update player-note sections and portrait thumbnails without a full rebuild.
+function updateNpcPlayerNoteCards() {
+  document.querySelectorAll('.npc-card').forEach(card => {
+    const name = card.dataset.npcName;
+    const slug = npcSlug(name);
+    const noteData = npcPlayerNotes[slug];
+    const header = card.querySelector('.npc-card-header');
+
+    if (!header) return;
+
+    // Portrait thumbnail — DM sees all NPC images; players only see button-sent ones.
+    const portraitSrc = IS_DM ? (npcImages[slug] || null) : (noteData?.image || null);
+    let thumb = header.querySelector('.npc-portrait-thumb');
+    if (portraitSrc) {
+      if (!thumb) {
+        thumb = document.createElement('img');
+        thumb.className = 'npc-portrait-thumb';
+        thumb.alt = '';
+        thumb.title = 'View portrait';
+        const nameBlock = header.querySelector('.npc-name-block');
+        if (nameBlock) header.insertBefore(thumb, nameBlock);
+        else header.appendChild(thumb);
+      }
+      thumb.src = portraitSrc;
+      thumb.onclick = e => { e.stopPropagation(); openNpcZoomModal(portraitSrc, name); };
+    } else if (thumb) {
+      thumb.remove();
+    }
+
+    // Notes section
+    let section = card.querySelector('.npc-player-notes-section');
+    if (!noteData || !noteData.notes || noteData.notes.length === 0) {
+      if (section) section.remove();
+      return;
+    }
+    const newSection = buildPlayerNotesSection(noteData.notes);
+    if (section) {
+      section.replaceWith(newSection);
+    } else {
+      const body = card.querySelector('.npc-card-body');
+      if (body && body.classList.contains('open')) body.after(newSection);
+      else card.appendChild(newSection);
+    }
+  });
+}
+
+// Structural signature of the town content — households + NPC membership + all extra map data.
+// Note changes don't alter this, so we can tell a note-only update from a rename/move.
+function contentSig(content) {
+  return JSON.stringify({
+    houses:    (content && content.households || []).map(h => ({
+      id: h.id, name: h.name, npcs: (h.npcs || []).map(n => n.name)
+    })),
+    extraMaps: (content && content.extraMaps || []).map(m => ({
+      url:  m.url,
+      hh:   JSON.stringify((m.households || []).map(h => ({ id: h.id, name: h.name }))),
+      ll:   JSON.stringify((m.townLocations || []).map(l => ({ id: l.id, name: l.name }))),
+      vis:  JSON.stringify(m.playerVis   || {}),
+      hpos: JSON.stringify(m.housePositions || {}),
+      lpos: JSON.stringify(m.locPositions   || {})
+    }))
+  });
+}
+let lastContentSig = '';
+
+function rebuildContent() {
+  if (activeMapIndex > EXTRA_MAPS.length) {
+    activeMapIndex = 0;
+    mapImageLoading = false;
+  }
+  // Flush pending note saves before destroying controllers so unload beacon covers them.
+  activeNotesControllers.forEach(c => c.flush?.());
+  activeNotesControllers.clear();
+  lastContentSig = contentSig({ households: (typeof HOUSEHOLDS !== 'undefined' ? HOUSEHOLDS : []), extraMaps: EXTRA_MAPS });
+  // Sidebar house buttons
+  document.getElementById('sidebar').innerHTML = '';
+  buildSidebar();
+
+  // Race filter bar — keep valid selectedRaces, rebuild buttons
+  const allNpcs = IS_DM
+    ? HOUSEHOLDS.flatMap(h => h.npcs)
+    : visibleHouses().flatMap(h => h.npcs.filter(n => isNpcVisible(h.id, n.name)));
+  const races = [...new Set(allNpcs.map(n => n.race))].sort();
+  [...selectedRaces].forEach(r => { if (!races.includes(r)) selectedRaces.delete(r); });
+
+  const fb = document.getElementById('filterBar');
+  fb.innerHTML = '';
+  const allBtn = document.createElement('button');
+  allBtn.className = 'filter-btn';
+  allBtn.dataset.race = '__all__';
+  allBtn.textContent = 'All';
+  allBtn.onclick = () => { selectedRaces.clear(); applyFilters(); };
+  fb.appendChild(allBtn);
+  races.forEach(r => {
+    const b = document.createElement('button');
+    b.className = 'filter-btn';
+    b.textContent = raceLabel(r);
+    b.dataset.race = r;
+    b.onclick = () => { if (selectedRaces.has(r)) selectedRaces.delete(r); else selectedRaces.add(r); applyFilters(); };
+    fb.appendChild(b);
+  });
+
+  // House list
+  const list = document.getElementById('houseList');
+  list.innerHTML = '';
+  const housesToBuild = visibleHouses();
+  housesToBuild.forEach(h => list.appendChild(buildHouse(h)));
+
+  // Map markers and NPC search index
+  buildMap();
+  npcIndex = buildNpcIndex();
+
+  applyFilters();
+  updateHeaderStats();
+  updateMapTitleUI();
+}
+
+// ─── SECONDARY MAPS ──────────────────────────────────────────────────────────
+function switchToMap(index) {
+  if (index === activeMapIndex) return;
+  _flushCurrentMapData();
+  activeMapIndex = index;
+  mapImageLoading = false;
+  if (index === 0) {
+    _loadMainMapGlobals();
+  } else {
+    const em = EXTRA_MAPS[index - 1];
+    if (em) {
+      _loadExtraMapGlobals(index);
+      _replaceObj(HOUSE_MAP, em.housePositions || {});
+      _replaceObj(LOC_MAP,   em.locPositions   || {});
+      playerVisibility = em.playerVis || { houses: {}, npcs: {} };
+    }
+  }
+  if (typeof loadHexGridFromState === 'function') loadHexGridFromState();   // this map's own grid
+  applyMapImage();
+  updateMapTitleUI();
+  rebuildContent();
+  const dd = document.getElementById('mapSwitchDropdown');
+  if (dd) dd.style.display = 'none';
+}
+
+function updateMapTitleUI() {
+  const titleEl    = document.getElementById('mapTitle');
+  const switchWrap = document.getElementById('mapSwitchWrap');
+  if (!titleEl || !switchWrap) return;
+  const allMaps = [{ label: `${TOWN_NAME} Map` }, ...EXTRA_MAPS.map(m => ({ label: m.label }))];
+  titleEl.textContent = allMaps[activeMapIndex]?.label || `${TOWN_NAME} Map`;
+  const dd = document.getElementById('mapSwitchDropdown');
+  dd.innerHTML = '';
+  if (IS_DM) {
+    switchWrap.style.display = '';
+    if (allMaps.length > 1) {
+      _appendMapSwitchItems(dd, allMaps);
+      const sep = document.createElement('div');
+      sep.style.cssText = 'height:1px;background:var(--parchment3);margin:4px 6px;';
+      dd.appendChild(sep);
+    }
+    const hasImg = !!getActiveMapUrl();
+    if (hasImg) {
+      const rmBtn = document.createElement('button');
+      rmBtn.type = 'button'; rmBtn.className = 'map-action-menu-item';
+      rmBtn.textContent = 'Remove image';
+      rmBtn.addEventListener('click', () => { dd.style.display = 'none'; removeActiveMapImage(); });
+      dd.appendChild(rmBtn);
+    }
+    const replBtn = document.createElement('button');
+    replBtn.type = 'button'; replBtn.className = 'map-action-menu-item';
+    replBtn.textContent = hasImg ? 'Replace image' : 'Add image';
+    replBtn.addEventListener('click', () => { dd.style.display = 'none'; replaceActiveMapImage(); });
+    dd.appendChild(replBtn);
+    // Delete map — only for extra maps (never the main town map)
+    if (activeMapIndex > 0) {
+      const delBtn = document.createElement('button');
+      delBtn.type = 'button'; delBtn.className = 'map-action-menu-item';
+      delBtn.textContent = 'Delete map';
+      delBtn.style.color = 'var(--red)';
+      delBtn.addEventListener('click', () => { dd.style.display = 'none'; deleteActiveMap(); });
+      dd.appendChild(delBtn);
+    }
+  } else {
+    if (allMaps.length > 1) {
+      switchWrap.style.display = '';
+      _appendMapSwitchItems(dd, allMaps);
+    } else {
+      switchWrap.style.display = 'none';
+      dd.style.display = 'none';
+    }
+  }
+}
+
+// Append a clickable switch-to entry for each map into the dropdown.
+function _appendMapSwitchItems(dd, allMaps) {
+  allMaps.forEach((m, i) => {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'map-action-menu-item';
+    item.textContent = m.label;
+    if (i === activeMapIndex) item.style.color = 'var(--gold)';
+    item.addEventListener('click', () => { dd.style.display = 'none'; switchToMap(i); });
+    dd.appendChild(item);
+  });
+}
+
+async function removeActiveMapImage() {
+  if (!confirm('Remove the map image? All location data (premises, labels, characters) will be kept.')) return;
+  if (activeMapIndex === 0) {
+    window.MAP_IMAGE_FILENAME = '';
+  } else {
+    const em = EXTRA_MAPS[activeMapIndex - 1];
+    if (em) em.url = '';
+  }
+  applyMapImage();
+  buildMap();
+  updateMapTitleUI();
+  await saveTownContentToServer();
+}
+
+async function deleteActiveMap() {
+  if (activeMapIndex === 0) return; // main town map cannot be deleted
+  const idx = activeMapIndex - 1;
+  const em  = EXTRA_MAPS[idx];
+  const label = em ? (em.label || 'this map') : 'this map';
+  if (!confirm(`Delete "${label}"? This removes its image and all of its premises, labels, and characters. Other maps in this location are not affected.`)) return;
+  // Load the main town map into the live globals WITHOUT flushing the doomed map,
+  // so its live data is simply discarded.
+  activeMapIndex = 0;
+  mapImageLoading = false;
+  _loadMainMapGlobals();
+  // Remove the extra map entry entirely.
+  EXTRA_MAPS.splice(idx, 1);
+  applyMapImage();
+  updateMapTitleUI();
+  rebuildContent();
+  await saveTownContentToServer();
+}
+
+// Read a file as a data URL and POST it to the extra-map endpoint (content-hash
+// deduped server-side). Returns the parsed { url } / { error } response.
+function _uploadMapImage(file, label) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const body = { dataUrl: reader.result, filename: file.name };
+      if (label != null) body.label = label;
+      fetch(`/api/town/${TOWN_SLUG_API}/extra-map`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      }).then(r => r.json()).then(resolve).catch(reject);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// Open a file picker for images, returning the chosen File (or null if cancelled).
+function _pickImageFile() {
+  return new Promise(resolve => {
+    const input = document.createElement('input');
+    input.type = 'file'; input.accept = 'image/*';
+    input.onchange = () => resolve(input.files[0] || null);
+    input.click();
+  });
+}
+
+async function replaceActiveMapImage() {
+  const file = await _pickImageFile();
+  if (!file) return;
+  try {
+    const d = await _uploadMapImage(file, null);
+    if (d && d.url) {
+      if (activeMapIndex === 0) {
+        window.MAP_IMAGE_FILENAME = d.url;
+      } else {
+        const em = EXTRA_MAPS[activeMapIndex - 1];
+        if (em) em.url = d.url;
+      }
+      applyMapImage();
+      updateMapTitleUI();
+      await saveTownContentToServer();
+    } else {
+      alert('Upload failed: ' + (d && d.error ? d.error : 'Unknown error'));
+    }
+  } catch(e) { alert('Upload failed'); }
+}
+
+async function addExtraMap() {
+  const file = await _pickImageFile();
+  if (!file) return;
+  const label = (prompt('Map label:') || '').trim();
+  if (!label) return;
+  try {
+    const d = await _uploadMapImage(file, label);
+    if (d && d.url) {
+      EXTRA_MAPS.push({ url: d.url, label });
+      await saveTownContentToServer();
+      updateMapTitleUI();
+      switchToMap(EXTRA_MAPS.length);
+    } else {
+      alert('Upload failed: ' + (d && d.error ? d.error : 'Unknown error'));
+    }
+  } catch(e) { alert('Upload failed'); }
+}
+
+// ─── PREMISES CREATION ───────────────────────────────────────────────────────
+async function removePremises(houseId, houseName) {
+  if (!confirm(`Remove "${houseName}"? Its NPCs will move to the unassigned list.`)) return;
+  // Clear premises on any npc_sheets NPCs that live here (main map only)
+  if (activeMapIndex === 0) {
+    await fetch(`/api/town/${TOWN_SLUG_API}/remove-premises`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ houseName })
+    }).catch(() => {});
+  }
+  // Remove from local state
+  const idx = HOUSEHOLDS.findIndex(h => h.id === houseId);
+  if (idx !== -1) HOUSEHOLDS.splice(idx, 1);
+  delete HOUSE_MAP[houseId];
+  // Persist and refresh
+  await saveTownContentToServer();
+  saveHouseMap();
+  rebuildContent();
+}
+
+function saveTownContentToServer() {
+  _flushCurrentMapData();
+  return fetch(`/api/town/${TOWN_SLUG_API}/content`, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({
+      name:            TOWN_NAME,
+      mapImage:        MAP_IMAGE_FILENAME,
+      totalHomes:      TOWN_TOTAL_HOMES  || 0,
+      totalResidents:  TOWN_TOTAL_RESIDENTS || 0,
+      households:      (_mainMapSnap.households || []).filter(h => !h.virtual),
+      townLocations:   _mainMapSnap.townLocations  || [],
+      houseMapDefault: _mainMapSnap.houseMapDefault || {},
+      extraMaps:       EXTRA_MAPS || []
+    })
+  }).catch(() => {});
+}
+
+async function addPremises() {
+  const name = (prompt('Premises name:') || '').trim();
+  if (!name) return;
+  const realHouses = HOUSEHOLDS.filter(h => !h.virtual);
+  const nextId = realHouses.reduce((m, h) => Math.max(m, Number(h.id) || 0), 0) + 1;
+  HOUSEHOLDS.push({ id: nextId, name, residents: 0, npcs: [], desc: '' });
+  await saveTownContentToServer();
+  rebuildContent();
+  setTimeout(() => {
+    document.getElementById('mapPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    enterPremisesPlacementMode(name, nextId);
+  }, 80);
+}
+
+function enterPremisesPlacementMode(name, id) {
+  if (premisesPlacementMode) exitPremisesPlacementMode();
+  premisesPlacementMode = true;
+  premisesPlacementId   = id;
+  document.getElementById('mapPanel').classList.add('placement-mode');
+  document.getElementById('placement-banner').textContent =
+    `Click on the map to place "${name}"  ·  Esc to cancel`;
+  ghostMarker = document.createElement('button');
+  ghostMarker.className = 'map-marker ghost';
+  ghostMarker.type = 'button';
+  const lbl = document.createElement('span');
+  lbl.className = 'map-label visible';
+  lbl.textContent = name;
+  ghostMarker.appendChild(lbl);
+  const mapFrame = document.getElementById('mapFrame');
+  mapFrame.appendChild(ghostMarker);
+  // Initialise ghost at last known cursor position, or map centre
+  const rect = mapFrame.getBoundingClientRect();
+  if (rect.width > 0 && lastPointerX !== null) {
+    const gx = Math.max(0, Math.min(100, ((lastPointerX - rect.left) / rect.width)  * 100));
+    const gy = Math.max(0, Math.min(100, ((lastPointerY - rect.top)  / rect.height) * 100));
+    ghostMarker.style.left = `${gx}%`;
+    ghostMarker.style.top  = `${gy}%`;
+  } else {
+    ghostMarker.style.left = '50%';
+    ghostMarker.style.top  = '50%';
+  }
+}
+
+function exitPremisesPlacementMode() {
+  premisesPlacementMode = false;
+  premisesPlacementId   = null;
+  if (ghostMarker) { ghostMarker.remove(); ghostMarker = null; }
+  document.getElementById('mapPanel').classList.remove('placement-mode');
+  document.getElementById('placement-banner').textContent = '';
+}
+
+function finalizePremisesPlacement(x, y) {
+  const id = premisesPlacementId;
+  exitPremisesPlacementMode();
+  HOUSE_MAP[id] = { x, y };
+  saveHouseMap();
+  buildMap();
+  setTimeout(() => selectHouseOnMap(id, false), 50);
+}
+
+// ─── PARTY MARKER ──────────────────────────────────────────────────────────
+function getPartyPos() {
+  const p = LOC_MAP['__party__'];
+  return (p && Number.isFinite(p.x) && Number.isFinite(p.y)) ? p : null;
+}
+
+function renderPartyMarker() {
+  if (!partyMarkerEl) return;
+  const pos = getPartyPos();
+  if (!pos) { partyMarkerEl.style.display = 'none'; return; }
+  partyMarkerEl.style.display = 'block';
+  partyMarkerEl.style.left = pos.x + '%';
+  partyMarkerEl.style.top  = pos.y + '%';
+}
+
+function initPartyMarker() {
+  partyMarkerEl = document.createElement('div');
+  partyMarkerEl.id = 'map-party-marker';
+  // Interlaced 8-point octagram with "Party" above and "Location" below (matches the atlas).
+  partyMarkerEl.innerHTML = `
+    <div class="party-label party-label-top">Party</div>
+    <div class="party-star-wrap">
+      <svg class="party-svg" viewBox="0 0 40 40" width="36" height="36" xmlns="http://www.w3.org/2000/svg">
+        <line class="oct-line" x1="20"    y1="3"     x2="32.02" y2="32.02"/>
+        <line class="oct-line" x1="32.02" y1="7.98"  x2="20"    y2="37"   />
+        <line class="oct-line" x1="37"    y1="20"    x2="7.98"  y2="32.02"/>
+        <line class="oct-line" x1="32.02" y1="32.02" x2="3"     y2="20"   />
+        <line class="oct-line" x1="20"    y1="37"    x2="7.98"  y2="7.98" />
+        <line class="oct-line" x1="7.98"  y1="32.02" x2="20"    y2="3"    />
+        <line class="oct-line" x1="3"     y1="20"    x2="32.02" y2="7.98" />
+        <line class="oct-line" x1="7.98"  y1="7.98"  x2="37"    y2="20"   />
+      </svg>
+    </div>
+    <div class="party-label party-label-bot">Location</div>`;
+  if (IS_DM) {
+    partyMarkerEl.classList.add('dm-movable');
+    partyMarkerEl.addEventListener('pointerdown', ev => {
+      if (ev.button !== 0) return;
+      ev.stopPropagation();
+      ev.preventDefault();
+      partyDragging = true;
+      partyMarkerEl.classList.add('dragging');
+      partyMarkerEl.setPointerCapture(ev.pointerId);
+    });
+    // Right-click removes the party marker from this map (DM).
+    partyMarkerEl.addEventListener('contextmenu', ev => {
+      ev.preventDefault();
+      if (confirm('Remove the party marker from this map?')) removePartyMarker();
+    });
+  }
+  document.getElementById('mapFrame').appendChild(partyMarkerEl);
+  renderPartyMarker();
+}
+
+// Remove the party marker from the current map (DM). Deletes its position so it hides + isn't
+// restored, then persists + broadcasts via the existing loc-map save.
+function removePartyMarker() {
+  if (!IS_DM) return;
+  delete LOC_MAP['__party__'];
+  renderPartyMarker();
+  saveLocMap();
+}
+
+// ─── HEX GRID (imported from the atlas; DM-controlled, synced to players) ──────
+// PER-MAP: each map (main + every extra map) keeps its own grid state under that map's
+// loc positions, in LOC_MAP['__hexgrid__'] = { on, scale }. LOC_MAP is swapped whenever the
+// active map changes, so switching maps loads that map's grid automatically. saveLocMap()
+// already persists LOC_MAP to the correct DB store (town_state for the main map, the
+// extra_maps JSON in town_content for extra maps) and broadcasts via the existing pipeline.
+// The overlay SVG is a child of #mapFrame, re-appended after every buildMap() (which clears
+// the frame), just like the party marker. scale = cell size in px.
+let hexGrid = { on: false, scale: 112 };
+let hexGridEl = null;
+let _hexSaveTimer = null;
+
+function hexPatternSvg() {
+  // Two pointy-top hexagons per tile (34.641 × 60) tiling into a seamless honeycomb.
+  return '<svg id="hex-grid-overlay" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">' +
+    '<defs><pattern id="hex-pattern" width="34.641" height="60" patternUnits="userSpaceOnUse" patternTransform="scale(3.2)">' +
+    '<path fill="none" stroke="#000000" stroke-width="1.4" stroke-linejoin="round" ' +
+    'd="M17.3205 0L34.641 10L34.641 30L17.3205 40L0 30L0 10Z M0 30L17.3205 40L17.3205 60L0 70L-17.3205 60L-17.3205 40Z"/>' +
+    '</pattern></defs><rect width="100%" height="100%" fill="url(#hex-pattern)"/></svg>';
+}
+
+// Insert (or move) the overlay into the current #mapFrame, beneath the markers. Called
+// from buildMap so it survives the frame being cleared.
+function mountHexGrid() {
+  const frame = document.getElementById('mapFrame');
+  if (!frame) return;
+  let el = frame.querySelector('#hex-grid-overlay');
+  if (!el) {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = hexPatternSvg();
+    el = tmp.firstChild;
+    // keep it as the first child so it sits under markers (which are appended after)
+    frame.insertBefore(el, frame.firstChild);
+  }
+  hexGridEl = el;
+  applyHexGrid();
+}
+
+function applyHexGrid() {
+  if (hexGridEl) {
+    hexGridEl.classList.toggle('hidden', !hexGrid.on);
+    const pattern = hexGridEl.querySelector('#hex-pattern');
+    if (pattern) pattern.setAttribute('patternTransform', 'scale(' + (hexGrid.scale / 34.641) + ')');
+    // Anchor the grid overlay to the DISPLAYED image box (not the whole frame), so the pattern's
+    // (0,0) origin is the image's top-left pixel and the grid never spills into the letterbox.
+    // Tokens use the same box (see hexToPct), so grid + tokens share one coordinate system.
+    const box = (typeof mapImageBox === 'function') ? mapImageBox() : null;
+    if (box) {
+      hexGridEl.style.left   = box.left + 'px';
+      hexGridEl.style.top    = box.top + 'px';
+      hexGridEl.style.width  = box.w + 'px';
+      hexGridEl.style.height = box.h + 'px';
+    }
+  }
+  const btn = document.getElementById('hexGridBtn');
+  if (btn) btn.classList.toggle('hexgrid-on', hexGrid.on);
+  const inp = document.getElementById('hexGridScale');
+  if (inp && document.activeElement !== inp) inp.value = hexGrid.scale;
+  // The grid cells just moved/resized → re-snap every token onto the new cell positions and
+  // update their size (sizeHexes × the new cell width). Keeps tokens locked to the grid.
+  if (typeof renderTokens === 'function') renderTokens();
+}
+
+// Read the CURRENT map's grid state (LOC_MAP is the active map's loc positions). A map
+// with no saved grid defaults to off / 112px cell size.
+function loadHexGridFromState() {
+  const g = LOC_MAP['__hexgrid__'];
+  if (g && typeof g === 'object') {
+    hexGrid.on = !!g.on;
+    hexGrid.scale = (Number.isFinite(g.scale) && g.scale > 0) ? Math.min(2000, Math.max(10, g.scale)) : 112;
+  } else {
+    hexGrid.on = false; hexGrid.scale = 112;   // no per-map state yet
+  }
+  applyHexGrid();
+}
+
+// DM only — persist the CURRENT map's grid + broadcast so players update. saveLocMap()
+// routes to the right DB store for the active map (main vs extra).
+function saveHexGrid() {
+  if (!IS_DM) return;
+  LOC_MAP['__hexgrid__'] = { on: hexGrid.on, scale: hexGrid.scale };
+  saveLocMap();
+}
+
+function toggleHexGrid() {
+  if (!IS_DM) return;
+  hexGrid.on = !hexGrid.on;
+  applyHexGrid();
+  saveHexGrid();
+}
+
+function setHexScale(px) {
+  if (!IS_DM) return;
+  const n = parseFloat(px);
+  if (!Number.isFinite(n) || n <= 0) return;
+  hexGrid.scale = Math.max(10, Math.min(2000, Math.round(n)));
+  applyHexGrid();
+  clearTimeout(_hexSaveTimer);
+  _hexSaveTimer = setTimeout(saveHexGrid, 300);   // debounce while scrubbing
+}
+
+function placeParty() {
+  LOC_MAP['__party__'] = { x: 50, y: 50 };
+  renderPartyMarker();
+  saveLocMap();
+}
+
+// ─── MAP TOKENS ───────────────────────────────────────────────────────────────
+// A GLOBAL pool of token definitions (from sheets) + PER-MAP instances. Instances live
+// in the current map's LOC_MAP['__tokens__'] = [{poolId,q,r,sizeHexes}]. Movement uses the
+// translate-glide model: the mover drags locally (no network); on drop we snap to a hex
+// cell and POST /api/tokens/move once; other viewers animate a single GPU transform.
+let tokenPool = [];                 // [{id,npcId,name,image,defaultSizeHexes}]
+let _myCharacterId = '';            // this player's assigned character npcId ('' for DM/anon)
+
+// Slugify an id the same way the server does (npcIds are already slugs, but we normalise
+// both sides so comparisons never fail on case/spacing).
+function slug(raw) { return String(raw || '').toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, ''); }
+
+function mapTokens() {
+  if (!Array.isArray(LOC_MAP['__tokens__'])) LOC_MAP['__tokens__'] = [];
+  return LOC_MAP['__tokens__'];
+}
+function poolToken(id) { return tokenPool.find(t => t.id === id) || null; }
+// A player controls a token iff it was made from THEIR assigned character sheet — the same
+// per-character mechanism that lets them edit that sheet. The server enforces this too.
+function canControlToken(pt) {
+  return IS_DM || (!!pt && !!_myCharacterId && slug(pt.npcId || '') === slug(_myCharacterId));
+}
+
+// Load the global token pool + this player's assigned character (for the control check),
+// then render.
+function loadTokenPool() {
+  fetch('/api/whoami').then(r => r.json()).then(a => { _myCharacterId = (a.player && a.player.characterId) || ''; renderTokens(); }).catch(() => {});
+  fetch('/api/tokens').then(r => r.json()).then(d => { tokenPool = Array.isArray(d.pool) ? d.pool : []; renderTokens(); }).catch(() => {});
+  ensureFrameResizeObserver();
+}
+
+// Tokens are positioned as a % of the frame, which is only correct once the frame has laid out
+// to the image's aspect ratio. The image loads async, so the FIRST buildMap() renders tokens
+// against a stale frame size → they land off the grid. A ResizeObserver re-snaps every token the
+// moment the frame settles to its real size (and on any later window resize), so a token always
+// sits on its grid cell regardless of layout timing. Cheap: only fires on actual box changes.
+let _frameResizeObs = null;
+function ensureFrameResizeObserver() {
+  if (_frameResizeObs || typeof ResizeObserver === 'undefined') return;
+  const frame = document.getElementById('mapFrame');
+  if (!frame) return;
+  let raf = 0;
+  _frameResizeObs = new ResizeObserver(() => {
+    // Coalesce bursts of resize callbacks into one render on the next frame.
+    if (raf) return;
+    raf = requestAnimationFrame(() => { raf = 0; renderTokens(); });
+  });
+  _frameResizeObs.observe(frame);
+}
+
+// ── Token picker (DM): choose a sheet → create/reuse a pool token → place it on this map. ──
+let _tkpSheets = null;   // cached sheet list + player assignments for the picker
+function openTokenPicker() {
+  if (!IS_DM) return;
+  document.getElementById('tokenPickerModal').style.display = 'flex';
+  document.getElementById('tkpSearch').value = '';
+  Promise.all([
+    fetch('/api/npc-sheets').then(r => r.json()).catch(() => ({ sheets: [] })),
+    fetch('/api/players').then(r => r.json()).catch(() => ({ players: [] }))
+  ]).then(([s, p]) => {
+    _tkpSheets = { sheets: (s.sheets || []), players: (p.players || []) };
+    renderTokenPickerList('');
+  });
+  setTimeout(() => document.getElementById('tkpSearch').focus(), 40);
+}
+function closeTokenPicker() { document.getElementById('tokenPickerModal').style.display = 'none'; }
+
+function renderTokenPickerList(q) {
+  const list = document.getElementById('tkpList');
+  if (!list || !_tkpSheets) return;
+  q = (q || '').toLowerCase().trim();
+  const placed = new Set(mapTokens().map(t => (poolToken(t.poolId) || {}).npcId).filter(Boolean));
+  list.innerHTML = '';
+  _tkpSheets.sheets
+    .filter(sh => !q || (sh.name || '').toLowerCase().includes(q))
+    .slice(0, 200)
+    .forEach(sh => {
+      const item = document.createElement('div');
+      item.className = 'tkp-item' + (placed.has(sh.npcId) ? ' placed' : '');
+      const owner = _tkpSheets.players.find(pl => slug(pl.characterId || '') === slug(sh.npcId));
+      item.innerHTML =
+        (sh.image ? `<img src="${sh.image.replace(/"/g, '&quot;')}" alt="">` : `<div class="tkp-noimg">${escHtml((sh.name || '?').charAt(0))}</div>`) +
+        `<div><div class="tkp-item-name">${escHtml(sh.name || '(unnamed)')}</div>` +
+        `<div class="tkp-item-sub">${sh.type === 'monster' ? 'Monster' : 'Character'}${owner ? ' · ' + escHtml(owner.name) : ''}</div></div>`;
+      item.addEventListener('click', () => placeTokenFromSheet(sh));
+      list.appendChild(item);
+    });
+  if (!list.children.length) list.innerHTML = '<div class="tkp-hint">No matching sheet.</div>';
+}
+
+// Create the pool token for this sheet (if new) + drop an instance at the map centre.
+// Control isn't stored on the token — it's derived live from the sheet's player assignment
+// (canControlToken/canEditCharacter), so re-assigning a character updates control automatically.
+function placeTokenFromSheet(sh) {
+  // Find or make the pool token keyed by source sheet npcId.
+  let pt = tokenPool.find(t => t.npcId === sh.npcId);
+  if (!pt) {
+    pt = {
+      id: 'tok_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+      npcId: sh.npcId, name: sh.name || 'Token', image: sh.image || '', defaultSizeHexes: 1
+    };
+    tokenPool.push(pt);
+    saveTokenPool();   // persist the new pool token globally
+  }
+  // Place (or re-centre) an instance on the CURRENT map at its centre cell.
+  // Use the IMAGE box centre (hex coords are image-box-relative), not the frame centre.
+  const box = mapImageBox() || (function(){ const r = document.getElementById('mapFrame').getBoundingClientRect(); return { w: r.width, h: r.height }; })();
+  const cell = pixelToHex(box.w / 2, box.h / 2);
+  const tokens = mapTokens();
+  let inst = tokens.find(t => t.poolId === pt.id);
+  if (!inst) { inst = { poolId: pt.id, q: cell.q, r: cell.r, sizeHexes: pt.defaultSizeHexes || 1 }; tokens.push(inst); }
+  else { inst.q = cell.q; inst.r = cell.r; }
+  saveLocMap();      // persist + broadcast the instance on this map
+  renderTokens();
+  closeTokenPicker();
+}
+
+function saveTokenPool() {
+  if (!IS_DM) return;
+  fetch('/api/tokens', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pool: tokenPool }) }).catch(() => {});
+}
+
+// Remove a token instance from THIS map (DM). (Pool token stays for reuse elsewhere.)
+function removeTokenFromMap(poolId) {
+  if (!IS_DM) return;
+  const tokens = mapTokens();
+  const i = tokens.findIndex(t => t.poolId === poolId);
+  if (i < 0) return;
+  tokens.splice(i, 1);
+  saveLocMap();
+  renderTokens();
+}
+
+// ── pointy-top hex geometry (see derivation): scale = hex width (flat-to-flat) in px.
+// One hex: width w = scale; height h = scale*2/√3; row spacing 0.75*h... using axial offset.
+// Hex geometry EXACTLY matching the on-screen SVG grid pattern. The pattern's cell centres
+// (in px, from the pattern path scaled by hexGrid.scale/34.641) are:
+//   x = q*w + (r even ? w/2 : 0)        y = h/2 + r*rowH
+// where w = hexGrid.scale (horizontal cell spacing), h = w*2/√3 (vertex-to-vertex height),
+// rowH = 0.75*h (row-to-row vertical spacing). This makes tokens snap onto the visible cells.
+function hexGeom() {
+  const w = hexGrid.scale;
+  const h = w * 2 / Math.sqrt(3);
+  return { w, h, rowH: h * 0.75 };
+}
+// Pixel (relative to frame, in px) → nearest hex cell {q,r} (offset coords: r=row, q=col).
+function pixelToHex(px, py) {
+  const g = hexGeom();
+  let r = Math.round((py - g.h / 2) / g.rowH);
+  const xoff = (r & 1) ? 0 : g.w / 2;   // even rows are shifted right by w/2 (matches the pattern)
+  let q = Math.round((px - xoff) / g.w);
+  return { q, r };
+}
+// Hex cell {q,r} → pixel CENTRE relative to the frame (px) — the centre of the visible cell.
+function hexToPixel(q, r) {
+  const g = hexGeom();
+  const xoff = (r & 1) ? 0 : g.w / 2;
+  return { x: q * g.w + xoff, y: g.h / 2 + r * g.rowH };
+}
+
+// The rendered pixel size of the map frame (its content box).
+function frameRenderSize() {
+  const frame = document.getElementById('mapFrame');
+  if (!frame) return null;
+  const rect = frame.getBoundingClientRect();
+  if (!rect.width || !rect.height) return null;
+  return { w: rect.width, h: rect.height };
+}
+
+// The DISPLAYED image rectangle inside the frame, in frame-relative px. The frame paints the
+// map with background-size:contain + position:center, so the image is scaled to FIT and any
+// leftover space becomes a centred letterbox. The grid and tokens must be anchored to THIS box
+// (its top-left is the image's first pixel), not the frame — otherwise the grid draws over the
+// letterbox and tokens drift off the image. Falls back to the whole frame when the natural size
+// isn't known yet. Returns { left, top, w, h }.
+function mapImageBox() {
+  const size = frameRenderSize();
+  if (!size) return null;
+  const nat = _mapNaturalSizes[getActiveMapUrl()];
+  if (!nat || !nat.w || !nat.h) return { left: 0, top: 0, w: size.w, h: size.h };
+  // contain-fit: scale so the whole image fits; the tighter dimension letterboxes.
+  const scale = Math.min(size.w / nat.w, size.h / nat.h);
+  const w = nat.w * scale, h = nat.h * scale;
+  return { left: (size.w - w) / 2, top: (size.h - h) / 2, w, h };
+}
+
+// Convert a hex-centre px (relative to the IMAGE box) → percentage of the FRAME. Tokens are
+// positioned with left/top:% of the frame, so we add the image box's offset then divide by the
+// frame size. This puts the token on exactly the cell the grid draws (both anchored to the image).
+function hexToPct(q, r) {
+  const size = frameRenderSize();
+  const box  = mapImageBox();
+  if (!size || !box) return { x: 50, y: 50 };
+  const p = hexToPixel(q, r);
+  return { x: ((box.left + p.x) / size.w) * 100, y: ((box.top + p.y) / size.h) * 100 };
+}
+
+// ── render all token instances into #mapFrame (called from buildMap, after the frame is
+// cleared, so tokens sit above the hex grid and markers). Each token = a positioned el with
+// the sheet portrait sized to sizeHexes cells, plus a name label and (for controllers) a
+// resize handle. Position is set via transform:translate so live moves glide on the GPU.
+function renderTokens() {
+  const frame = document.getElementById('mapFrame');
+  if (!frame) return;
+  frame.querySelectorAll('.map-token').forEach(t => t.remove());
+  const rect = frame.getBoundingClientRect();
+  mapTokens().forEach(inst => {
+    const pt = poolToken(inst.poolId);
+    if (!pt) return;   // orphaned instance (pool token deleted) — skip
+    const el = document.createElement('div');
+    el.className = 'map-token';
+    el.dataset.poolId = inst.poolId;
+    const controllable = canControlToken(pt);
+    if (controllable) el.classList.add('token-movable');
+    // A REGULAR pointy-top hexagon: width = sizeHexes × hex width; height = width × 2/√3
+    // (≈1.1547) so all six sides are equal and it matches the hex grid cells exactly.
+    const hexW = Math.max(12, (inst.sizeHexes || 1) * hexGrid.scale);
+    const hexH = hexW * 2 / Math.sqrt(3);
+    const pct = hexToPct(inst.q, inst.r);
+    el.style.left = pct.x + '%';
+    el.style.top  = pct.y + '%';
+    // A hexagonal frame (coloured backing hex = the ring) with the portrait hex on top.
+    const inner = pt.image
+      ? `<img class="map-token-img" src="${pt.image.replace(/"/g, '&quot;')}" alt="" draggable="false">`
+      : `<div class="map-token-img map-token-noimg">${escHtml((pt.name || '?').charAt(0))}</div>`;
+    el.innerHTML =
+      `<div class="map-token-hex" style="width:${hexW}px;height:${hexH}px">${inner}</div>` +
+      (controllable ? '<div class="map-token-resize" title="Drag to resize (snaps to hex)"></div>' : '') +
+      `<div class="map-token-name">${escHtml(pt.name || '')}</div>`;
+    el._inst = inst; el._pt = pt;
+    if (controllable) wireTokenInteract(el, inst, pt);
+    frame.appendChild(el);
+  });
+}
+
+// ── drag (local 60fps) + drop (snap + one network message), and corner resize.
+let _tokenDrag = null;   // { el, inst, startX, startY, moved }
+function wireTokenInteract(el, inst, pt) {
+  const handle = el.querySelector('.map-token-resize');
+
+  // DM: right-click removes this token instance from the current map (pool token kept).
+  if (IS_DM) {
+    el.addEventListener('contextmenu', ev => {
+      ev.preventDefault();
+      if (confirm('Remove "' + (pt.name || 'token') + '" from this map?')) removeTokenFromMap(inst.poolId);
+    });
+  }
+
+  // Move: pointer-drag the token body. No network during the drag — only on drop.
+  el.addEventListener('pointerdown', ev => {
+    if (ev.button !== 0) return;
+    if (handle && ev.target === handle) return;   // resize handled separately
+    ev.preventDefault(); ev.stopPropagation();
+    const frame = document.getElementById('mapFrame');
+    const rect = frame.getBoundingClientRect();
+    _tokenDrag = { el, inst, rect, moved: false };
+    el.classList.add('token-dragging');
+    el.style.transition = 'none';   // follow the cursor instantly while dragging
+    el.setPointerCapture(ev.pointerId);
+  });
+  el.addEventListener('pointermove', ev => {
+    if (!_tokenDrag || _tokenDrag.el !== el) return;
+    const { rect } = _tokenDrag;
+    const px = ev.clientX - rect.left, py = ev.clientY - rect.top;
+    el.style.left = Math.max(0, Math.min(100, (px / rect.width) * 100)) + '%';
+    el.style.top  = Math.max(0, Math.min(100, (py / rect.height) * 100)) + '%';
+    _tokenDrag.moved = true;
+  });
+  el.addEventListener('pointerup', ev => {
+    if (!_tokenDrag || _tokenDrag.el !== el) return;
+    const { rect, moved } = _tokenDrag;
+    el.classList.remove('token-dragging');
+    el.style.transition = '';
+    _tokenDrag = null;
+    if (!moved) return;
+    // Snap the drop point to the nearest hex cell, update locally, and send ONE message.
+    // pixelToHex expects IMAGE-box-relative px, so subtract the letterbox offset first.
+    const box = mapImageBox() || { left: 0, top: 0 };
+    const px = ev.clientX - rect.left - box.left, py = ev.clientY - rect.top - box.top;
+    const cell = pixelToHex(px, py);
+    inst.q = cell.q; inst.r = cell.r;
+    const pct = hexToPct(inst.q, inst.r);
+    el.style.left = pct.x + '%'; el.style.top = pct.y + '%';   // settle onto the cell centre
+    sendTokenMove(inst);
+  });
+
+  // Resize: drag the corner handle; size snaps to whole hex multiples (1×,2×,3×…).
+  if (handle) {
+    handle.addEventListener('pointerdown', ev => {
+      if (ev.button !== 0) return;
+      ev.preventDefault(); ev.stopPropagation();
+      const frame = document.getElementById('mapFrame');
+      const rect = frame.getBoundingClientRect();
+      const tokRect = el.getBoundingClientRect();
+      const cx = tokRect.left + tokRect.width / 2, cy = tokRect.top + tokRect.height / 2;
+      const onMove = e => {
+        const dist = Math.max(Math.abs(e.clientX - cx), Math.abs(e.clientY - cy)) * 2;   // full width
+        const hexes = Math.max(1, Math.min(6, Math.round(dist / hexGrid.scale)));
+        el.style.width = (hexes * hexGrid.scale) + 'px';
+        el.style.height = (hexes * hexGrid.scale) + 'px';
+        el.dataset.pendingSize = hexes;
+      };
+      const onUp = () => {
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        const hexes = parseInt(el.dataset.pendingSize, 10) || inst.sizeHexes || 1;
+        if (hexes !== inst.sizeHexes) { inst.sizeHexes = hexes; sendTokenMove(inst); }
+      };
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+    });
+  }
+}
+
+// Persist + broadcast one token instance's position/size. DM saves the whole map (saveLocMap);
+// a player posts just their move to the dmOrOwner-gated endpoint.
+function sendTokenMove(inst) {
+  if (IS_DM) {
+    saveLocMap();   // rides the town-state / extra-map save + broadcast
+  } else {
+    fetch('/api/tokens/move', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ town: TOWN_SLUG_API, mapIndex: activeMapIndex, poolId: inst.poolId, q: inst.q, r: inst.r, sizeHexes: inst.sizeHexes })
+    }).catch(() => {});
+  }
+}
+
+// ── live glide: apply a remote token move by animating the token to its new cell.
+function applyRemoteTokenMove(d) {
+  if (slug(d.town || '') !== slug(TOWN_SLUG_API)) return;
+  if ((parseInt(d.mapIndex, 10) || 0) !== activeMapIndex) {
+    // Not the visible map — just update the underlying instance list quietly if it's ours.
+    return;
+  }
+  const tokens = mapTokens();
+  let inst = tokens.find(t => t.poolId === d.poolId);
+  if (!inst) { inst = { poolId: d.poolId, q: d.q, r: d.r, sizeHexes: d.sizeHexes || 1 }; tokens.push(inst); renderTokens(); return; }
+  inst.q = d.q; inst.r = d.r; if (d.sizeHexes) inst.sizeHexes = d.sizeHexes;
+  const el = document.querySelector('.map-token[data-pool-id="' + CSS.escape(d.poolId) + '"]');
+  if (!el) { renderTokens(); return; }
+  // Animate to the new cell (transform-free % move on a transition — GPU-composited).
+  const pct = hexToPct(inst.q, inst.r);
+  el.style.transition = 'left .35s ease, top .35s ease, width .2s, height .2s';
+  el.style.left = pct.x + '%'; el.style.top = pct.y + '%';
+  el.style.width = (inst.sizeHexes * hexGrid.scale) + 'px';
+  el.style.height = (inst.sizeHexes * hexGrid.scale) + 'px';
+}
+
+// ─── MAIN BUILD ──────────────────────────────────────────────────────────────
+function build() {
+  if (typeof TOWN_NAME === 'undefined') { console.error('Content file not loaded'); return; }
+  initHouseMap();
+  initLocMap();
+  initPartyMarker();
+  loadPlayerVisibility();
+
+  loadHexGridFromState();   // grid state (global) is in serverState by now; apply it
+  loadTokenPool();          // the global token pool (used to render map-token instances)
+
+  // DM mode UI elements
+  if (IS_DM) {
+    document.getElementById('dmHeaderGroup').style.display = '';
+    document.getElementById('mapEditBtn').style.display    = '';
+    document.getElementById('newMenuWrap').style.display   = '';
+    document.getElementById('hexGridWrap').style.display   = '';   // Hex Grid control (DM only)
+
+    const visSelect = document.getElementById('visFilterSelect');
+    visSelect.style.display = '';
+    visSelect.addEventListener('change', () => {
+      visFilter = visSelect.value;
+      applyFilters();
+    });
+  }
+
+  document.title = `${TOWN_NAME} — NPC Registry`;
+  document.getElementById('headerTitle').textContent    = TOWN_NAME;
+  document.getElementById('headerSubtitle').textContent =
+    (IS_DM ? 'DM Mode · ' : '') + `NPC Registry — Households 1–${HOUSEHOLDS.length} of ${TOWN_TOTAL_HOMES}`;
+
+  rebuildContent();
+  setupNpcZoomModal();
+  setMapLabelsVisible(mapLabelsVisible);
+
+  document.getElementById('npcToolBtn').addEventListener('click',   () => window.open(npcToolUrl({ town: TOWN_SLUG_API }), '_blank'));
+  document.getElementById('mapLabelsBtn').addEventListener('click', () => setMapLabelsVisible(!mapLabelsVisible));
+  document.getElementById('mapEditBtn').addEventListener('click',   () => toggleMapEditMode());
+  document.getElementById('hexGridBtn').addEventListener('click',   () => toggleHexGrid());
+  document.getElementById('hexGridScale').addEventListener('input', e => setHexScale(e.target.value));
+  document.getElementById('mapSwitchBtn').addEventListener('click', e => {
+    e.stopPropagation();
+    const dd = document.getElementById('mapSwitchDropdown');
+    dd.style.display = dd.style.display === 'none' ? '' : 'none';
+  });
+  document.getElementById('newMenuBtn').addEventListener('click', e => {
+    e.stopPropagation();
+    const dd = document.getElementById('newMenuDropdown');
+    dd.style.display = dd.style.display === 'none' ? '' : 'none';
+  });
+  document.getElementById('newPremisesItem').addEventListener('click', () => {
+    document.getElementById('newMenuDropdown').style.display = 'none';
+    addPremises();
+  });
+  document.getElementById('newLabelItem').addEventListener('click', () => {
+    document.getElementById('newMenuDropdown').style.display = 'none';
+    addTownLabel();
+  });
+  document.getElementById('newMapItem').addEventListener('click', () => {
+    document.getElementById('newMenuDropdown').style.display = 'none';
+    addExtraMap();
+  });
+  document.getElementById('newPartyItem').addEventListener('click', () => {
+    document.getElementById('newMenuDropdown').style.display = 'none';
+    placeParty();
+  });
+  document.getElementById('newTokenItem').addEventListener('click', () => {
+    document.getElementById('newMenuDropdown').style.display = 'none';
+    openTokenPicker();
+  });
+  document.getElementById('tkpClose').addEventListener('click', closeTokenPicker);
+  document.getElementById('tkpBackdrop').addEventListener('click', closeTokenPicker);
+  document.getElementById('tkpSearch').addEventListener('input', e => renderTokenPickerList(e.target.value));
+  document.addEventListener('click', e => {
+    const newWrap   = document.getElementById('newMenuWrap');
+    const mapSwWrap = document.getElementById('mapSwitchWrap');
+    if (newWrap && !newWrap.contains(e.target))
+      document.getElementById('newMenuDropdown').style.display = 'none';
+    if (mapSwWrap && !mapSwWrap.contains(e.target)) {
+      const dd = document.getElementById('mapSwitchDropdown');
+      if (dd) dd.style.display = 'none';
+    }
+  });
+
+  // Shared fixed-position tooltip for map markers
+  if (!document.getElementById('map-tooltip')) {
+    const tip = document.createElement('div');
+    tip.id = 'map-tooltip';
+    document.body.appendChild(tip);
+  }
+
+  initSearch();
+  connectSSE();
+  startPlayerPolling();
+  setupCombatAttacksPanel();
+}
+
+// The town map tool hosts BOTH shared combat panels: INITIATIVE (round tracker, DM
+// controls) and ATTACKS (player = own char's attacks; DM = active combatant's).
+function setupCombatAttacksPanel() {
+  fetch('/api/whoami').then(r => r.json()).catch(() => ({})).then(auth => {
+    window.CombatPanel = { config: {
+      isDM: IS_DM,
+      myCharacterId: (auth.player && auth.player.characterId) || '',
+      panels: 'both',
+      diceRoll: window.DiceRoll || null
+    } };
+    const s = document.createElement('script'); s.src = '/combat-panel.js'; document.body.appendChild(s);
+  });
+}
+
+
+// Live reload now rides the main /api/events stream (handled in connectSSE above)
+// so it doesn't open a second SSE connection per tab.
+
+// ─── NPC PORTRAIT ZOOM MODAL ─────────────────────────────────────────────────
+let _npcZoom = 100, _npcZoomFitW = 0, _npcZoomFitH = 0;
+let _zoomModal, _zoomImg, _zoomViewport, _zoomTitle, _zoomSlider, _zoomPct;
+
+function setupNpcZoomModal() {
+  _zoomModal    = document.getElementById('npcZoomModal');
+  _zoomImg      = document.getElementById('npcZoomImg');
+  _zoomViewport = document.getElementById('npcZoomViewport');
+  _zoomTitle    = document.getElementById('npcZoomTitle');
+  _zoomSlider   = document.getElementById('npcZoomSlider');
+  _zoomPct      = document.getElementById('npcZoomPct');
+
+  document.getElementById('npcZoomClose').addEventListener('click', closeNpcZoomModal);
+  document.getElementById('npcZoomBackdrop').addEventListener('click', closeNpcZoomModal);
+  _zoomSlider.addEventListener('input', () => { _npcZoom = Number(_zoomSlider.value); applyNpcZoom(); });
+  document.getElementById('npcZoomOut').addEventListener('click', () => {
+    _npcZoom = Math.max(50,  _npcZoom - 10); _zoomSlider.value = _npcZoom; applyNpcZoom();
+  });
+  document.getElementById('npcZoomIn').addEventListener('click', () => {
+    _npcZoom = Math.min(200, _npcZoom + 10); _zoomSlider.value = _npcZoom; applyNpcZoom();
+  });
+  _zoomViewport.addEventListener('wheel', e => {
+    e.preventDefault();
+    _npcZoom = Math.max(50, Math.min(200, _npcZoom + (e.deltaY < 0 ? 10 : -10)));
+    _zoomSlider.value = _npcZoom; applyNpcZoom();
+  }, { passive: false });
+}
+
+function openNpcZoomModal(src, name) {
+  if (!src) return;
+  _zoomTitle.textContent = name || 'Portrait';
+  _npcZoom = 100;
+  _zoomSlider.value = 100;
+  _zoomImg.onload = () => {
+    const vw = _zoomViewport.clientWidth  - 32;
+    const vh = _zoomViewport.clientHeight - 32;
+    const scale = Math.min(vw / _zoomImg.naturalWidth, vh / _zoomImg.naturalHeight, 1);
+    _npcZoomFitW = Math.round(_zoomImg.naturalWidth  * scale);
+    _npcZoomFitH = Math.round(_zoomImg.naturalHeight * scale);
+    applyNpcZoom();
+  };
+  _zoomImg.src = '';  // reset to force onload even when src is unchanged (cached image)
+  _zoomImg.src = src;
+  _zoomModal.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeNpcZoomModal() {
+  _zoomModal.style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+function applyNpcZoom() {
+  _zoomImg.style.width  = Math.round(_npcZoomFitW * _npcZoom / 100) + 'px';
+  _zoomImg.style.height = Math.round(_npcZoomFitH * _npcZoom / 100) + 'px';
+  _zoomPct.textContent = _npcZoom + '%';
+}
+
+// ─── MAIN TAB SWITCHING (Map / Lore) ─────────────────────────────────────────
+function switchMapMainTab(tab) {
+  document.querySelectorAll('.map-main-tab-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.maptab === tab));
+  document.querySelectorAll('.map-main-pane').forEach(pane => pane.classList.toggle('active', pane.id === 'maptab-' + tab));
+}
+
+// ─── LORE NOTES ──────────────────────────────────────────────────────────────
+let _loreSeed = 0;
+let _loreSaveTimer = null;
+
+function saveLoreNotes() {
+  clearTimeout(_loreSaveTimer);
+  _loreSaveTimer = setTimeout(pushState, 500);
+}
+
+function rebuildLoreNotes() {
+  const list = document.getElementById('loreNotesList');
+  if (!list) return;
+  list.innerHTML = '';
+  (serverState.loreNotes || []).forEach(note => appendLoreNoteItem(note));
+}
+
+function addLoreNote() {
+  const note = { id: Date.now() + (_loreSeed++), label: 'New Note', value: '', shared: false, attachment: null };
+  serverState.loreNotes.push(note);
+  appendLoreNoteItem(note);
+  saveLoreNotes();
+}
+
+function appendLoreNoteItem(note) {
+  if (note.shared === undefined) note.shared = false;
+  if (note.attachment === undefined) note.attachment = null;
+  const list = document.getElementById('loreNotesList');
+  const item = document.createElement('div');
+  item.className = 'note-item';
+
+  item.innerHTML = `
+    <div class="note-header">
+      <input class="note-label-input" type="text" value="${escHtml(note.label || '')}">
+      <button type="button" class="send-players-btn${note.shared ? ' sent' : ''}">${note.shared ? '● Shared' : '○ Hidden'}</button>
+      <button type="button" class="note-remove-btn" title="Remove note">✕</button>
+    </div>
+    <div class="note-body">
+      <textarea class="note-value-input">${escHtml(note.value || '')}</textarea>
+      <div class="note-attach-row"></div>
+    </div>`;
+
+  const labelInput = item.querySelector('.note-label-input');
+  const valueInput = item.querySelector('.note-value-input');
+  const sendBtn    = item.querySelector('.send-players-btn');
+  const removeBtn  = item.querySelector('.note-remove-btn');
+  const attachRow  = item.querySelector('.note-attach-row');
+
+  labelInput.addEventListener('input', () => { note.label = labelInput.value; saveLoreNotes(); });
+  valueInput.addEventListener('input', () => { note.value = valueInput.value; saveLoreNotes(); });
+
+  sendBtn.addEventListener('click', () => {
+    note.shared = !note.shared;
+    sendBtn.classList.toggle('sent', note.shared);
+    sendBtn.textContent = note.shared ? '● Shared' : '○ Hidden';
+    saveLoreNotes();
+  });
+
+  removeBtn.addEventListener('click', () => {
+    if (note.attachment && note.attachment.url) deleteMapAttachment('lore-' + TOWN_SLUG_API, note.attachment.url);
+    serverState.loreNotes = serverState.loreNotes.filter(n => n !== note);
+    item.remove();
+    saveLoreNotes();
+  });
+
+  renderLoreAttachment(attachRow, note);
+  list.appendChild(item);
+}
+
+function renderLoreAttachment(row, note) {
+  row.innerHTML = '';
+  const att = note.attachment;
+  if (att && att.url) {
+    const wrap = document.createElement('div');
+    wrap.className = 'note-att';
+    renderMapAttachment(wrap, att, () => {
+      deleteMapAttachment('lore-' + TOWN_SLUG_API, att.url);
+      note.attachment = null;
+      renderLoreAttachment(row, note);
+      saveLoreNotes();
+    });
+    row.appendChild(wrap);
+  } else {
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'note-att-add';
+    btn.textContent = '＋ Attach image / PDF';
+    btn.addEventListener('click', () =>
+      pickMapAttachment('lore-' + TOWN_SLUG_API, note, () => renderLoreAttachment(row, note), saveLoreNotes)
+    );
+    row.appendChild(btn);
+  }
+}
+
+// Wire lore tab on DOM ready
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.map-main-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => switchMapMainTab(btn.dataset.maptab));
+  });
+  document.getElementById('addLoreNoteBtn')?.addEventListener('click', addLoreNote);
+});
+
+// ─── MIGRATE ELEMENT BETWEEN MAPS ────────────────────────────────────────────
+function _allMapLabels() {
+  const labels = [{ index: 0, label: (typeof TOWN_NAME !== 'undefined' ? TOWN_NAME : 'Main') + ' Map' }];
+  (EXTRA_MAPS || []).forEach((em, i) => labels.push({ index: i + 1, label: em.label || ('Map ' + (i + 1)) }));
+  return labels;
+}
+
+function _buildMigrateDropdown(type, id, name) {
+  const wrap = document.createElement('div');
+  wrap.className = 'mig-wrap';
+  const toggle = document.createElement('button');
+  toggle.type = 'button';
+  toggle.className = 'mig-toggle';
+  toggle.textContent = '▾';
+  toggle.title = 'Options';
+  const menu = document.createElement('div');
+  menu.className = 'mig-menu';
+  // Remove item
+  const rmItem = document.createElement('button');
+  rmItem.type = 'button'; rmItem.className = 'mig-item mig-remove';
+  rmItem.textContent = '✕ Remove';
+  rmItem.addEventListener('click', e => {
+    e.stopPropagation(); menu.classList.remove('open');
+    if (type === 'house') removePremises(id, name);
+    else removeTownLabel(id, name);
+  });
+  menu.appendChild(rmItem);
+  // Migrate item (only if there are other maps)
+  const allMaps = _allMapLabels();
+  if (allMaps.length > 1) {
+    const migItem = document.createElement('button');
+    migItem.type = 'button'; migItem.className = 'mig-item';
+    migItem.textContent = '→ Migrate';
+    migItem.addEventListener('click', e => {
+      e.stopPropagation(); menu.classList.remove('open');
+      _showMigrateModal(type, id, name);
+    });
+    menu.appendChild(migItem);
+  }
+  toggle.addEventListener('click', e => {
+    e.stopPropagation();
+    document.querySelectorAll('.mig-menu.open').forEach(m => { if (m !== menu) m.classList.remove('open'); });
+    menu.classList.toggle('open');
+  });
+  // Outside-click closing is handled once by the global handler below — do NOT
+  // register a per-dropdown document listener here (buildSidebar runs on every
+  // rebuild, so that would leak a listener per house/label each time).
+  wrap.appendChild(toggle); wrap.appendChild(menu);
+  return wrap;
+}
+
+function _showMigrateModal(type, id, name) {
+  const modal = document.getElementById('migrateModal');
+  const list  = document.getElementById('migrateMapList');
+  const title = document.getElementById('migrateModalTitle');
+  if (!modal || !list) return;
+  title.textContent = `Migrate "${name}" to:`;
+  list.innerHTML = '';
+  _allMapLabels().filter(m => m.index !== activeMapIndex).forEach(m => {
+    const btn = document.createElement('button');
+    btn.className = 'migrate-map-btn';
+    btn.textContent = m.label;
+    btn.addEventListener('click', () => {
+      _closeMigrateModal();
+      if (type === 'house') _migrateHouse(id, m.index);
+      else _migrateTownLabel(id, m.index);
+    });
+    list.appendChild(btn);
+  });
+  modal.classList.add('open');
+}
+
+function _closeMigrateModal() {
+  const modal = document.getElementById('migrateModal');
+  if (modal) modal.classList.remove('open');
+}
+
+function _getMapHouseholds(mapIndex) {
+  if (mapIndex === 0) return _mainMapSnap.households || [];
+  const em = EXTRA_MAPS[mapIndex - 1];
+  if (!em) return [];
+  if (!Array.isArray(em.households)) em.households = [];
+  return em.households;
+}
+
+function _getMapLocations(mapIndex) {
+  if (mapIndex === 0) return _mainMapSnap.townLocations || [];
+  const em = EXTRA_MAPS[mapIndex - 1];
+  if (!em) return [];
+  if (!Array.isArray(em.townLocations)) em.townLocations = [];
+  return em.townLocations;
+}
+
+function _migrateHouse(houseId, targetMapIndex) {
+  const house = HOUSEHOLDS.find(h => h.id === houseId);
+  if (!house) return;
+  const targetHH = _getMapHouseholds(targetMapIndex);
+  const maxId = targetHH.filter(h => !h.virtual).reduce((m, h) => Math.max(m, Number(h.id) || 0), 0);
+  const clone = JSON.parse(JSON.stringify(house));
+  clone.id = maxId + 1;
+  targetHH.push(clone);
+  saveTownContentToServer();
+}
+
+function _migrateTownLabel(locId, targetMapIndex) {
+  const loc = TOWN_LOCATIONS.find(l => l.id === locId);
+  if (!loc) return;
+  const targetLL = _getMapLocations(targetMapIndex);
+  const maxId = targetLL.reduce((m, l) => Math.max(m, Number(l.id) || 0), 0);
+  const clone = JSON.parse(JSON.stringify(loc));
+  clone.id = maxId + 1;
+  targetLL.push(clone);
+  saveTownContentToServer();
+}
+
+document.addEventListener('click', e => {
+  // Close any open migrate dropdown when clicking outside it (single global
+  // handler — replaces the former per-dropdown listeners that leaked).
+  document.querySelectorAll('.mig-menu.open').forEach(m => m.classList.remove('open'));
+  const modal = document.getElementById('migrateModal');
+  if (modal && e.target.id === 'migrateBackdrop') _closeMigrateModal();
+});
+document.getElementById('migrateCancelBtn')?.addEventListener('click', _closeMigrateModal);
+
+</script>
+
+<!-- NPC portrait zoom modal (shared, one instance) -->
+<div class="npc-zoom-modal" id="npcZoomModal" style="display:none">
+  <div class="npc-zoom-backdrop" id="npcZoomBackdrop"></div>
+  <div class="npc-zoom-window">
+    <div class="npc-zoom-titlebar">
+      <span class="npc-zoom-title" id="npcZoomTitle">Portrait</span>
+      <button type="button" class="npc-zoom-close" id="npcZoomClose">✕</button>
+    </div>
+    <div class="npc-zoom-controls">
+      <button type="button" class="npc-zoom-step" id="npcZoomOut">−</button>
+      <input type="range" class="npc-zoom-slider" id="npcZoomSlider" min="50" max="200" value="100" step="10">
+      <button type="button" class="npc-zoom-step" id="npcZoomIn">+</button>
+      <span class="npc-zoom-pct" id="npcZoomPct">100%</span>
+    </div>
+    <div class="npc-zoom-viewport" id="npcZoomViewport">
+      <img class="npc-zoom-img" id="npcZoomImg" alt="NPC portrait">
+    </div>
+  </div>
+</div>
+
+<!-- TOKEN PICKER (DM): create a token from a sheet, or place an existing pool token -->
+<div id="tokenPickerModal" style="display:none">
+  <div class="tkp-backdrop" id="tkpBackdrop"></div>
+  <div class="tkp-window">
+    <div class="tkp-head"><span>Place a Token</span><button type="button" class="tkp-close" id="tkpClose">✕</button></div>
+    <input type="text" id="tkpSearch" class="tkp-search" placeholder="Search characters / NPCs…" autocomplete="off">
+    <div class="tkp-list" id="tkpList"></div>
+    <div class="tkp-hint">Pick a sheet to place its portrait as a token on this map. Tokens are shared — placing the same one again reuses it.</div>
+  </div>
+</div>
+<script src="/dice-roll.js"></script>
+<script src="/yo-convert.js"></script>
+</body>
+</html>

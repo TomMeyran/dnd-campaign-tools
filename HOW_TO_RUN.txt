@@ -1,0 +1,37 @@
+HOW TO RUN (SHOWCASE / DEMO)
+=============================
+
+This is a self-contained demo with two pre-built towns (Millhaven and Thorngate)
+and 20 example NPCs. No configuration needed.
+
+REQUIREMENTS
+  - Node.js (v18 or later)  https://nodejs.org
+
+FIRST-TIME SETUP
+  1. Open a terminal in this folder (showcase/).
+  2. Run:  npm install
+     (Only needed once; start.bat does this automatically.)
+
+STARTING THE SERVER
+  Option A — double-click:  start.bat
+  Option B — terminal:      node server.js
+
+  The terminal will print the URLs once the server is ready.
+
+ACCESSING THE TOOLS
+  DM map / atlas      http://localhost:3000
+  DM NPC tool         http://localhost:3000/npcs/npc_tool.html
+
+  The showcase runs locally only — there is no player-facing tunnel.
+  To change the port, set the PORT environment variable before starting:
+    Windows:  set PORT=4000 && node server.js
+
+DEMO DATABASE
+  Pre-populated with:
+    - Example Region (regional map)
+    - Millhaven (town with 10 NPCs)
+    - Thorngate (town with 10 NPCs)
+
+  The database is stored in:  nocropi map tool/map_data.db
+  It is updated automatically while the server runs.
+  To reset to the original demo data, run:  node create_demo_db.js

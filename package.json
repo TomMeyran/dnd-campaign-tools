@@ -1,0 +1,13 @@
+{
+  "name": "dnd-campaign-tools",
+  "version": "1.0.0",
+  "description": "D&D Campaign Map & NPC Tools",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.22.2",
+    "sql.js": "^1.14.1"
+  }
+}
