@@ -1,0 +1,918 @@
+/* ── TOKENS ─────────────────────────────────────────────── */
+:root {
+  --ink:        #1c1208;
+  --ink-mid:    #3b2a14;
+  --ink-faint:  #6b4f2e;
+  --parchment:  #f2e8d0;
+  --parchment-dark: #e0cfa8;
+  --parchment-deep: #c9b47e;
+  --seal-red:   #8b2020;
+  --seal-red-h: #a82828;
+  --seal-gold:  #c8922a;
+  --seal-glow:  rgba(200,146,42,0.35);
+  --shadow:     rgba(28,18,8,0.55);
+  --sidebar-w:  300px;
+  --header-h:   54px;
+}
+
+/* ── RESET ───────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: var(--ink); }
+
+/* ── TYPOGRAPHY ──────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=IM+Fell+English:ital@0;1&display=swap');
+/* On-map label face (Tribal Garamond, served locally). */
+@font-face {
+  font-family: 'Tribal Garamond';
+  src: url('TribalGaramond.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+/* Blue fill + gold border in Tribal Garamond is applied directly to the on-map label
+   classes below: .marker-label (location names), .marker-text .marker-label (text markers),
+   and .party-label (the party marker's "Party"/"Location"). */
+
+body {
+  font-family: 'IM Fell English', Georgia, serif;
+  color: var(--ink);
+}
+.display { font-family: 'Cinzel', 'Trajan Pro', serif; }
+
+/* ── INKED BORDER FRAME (signature element) ──────────────── */
+#frame {
+  position: fixed; inset: 0;
+  pointer-events: none;
+  z-index: 200;
+}
+#frame::before {
+  content: '';
+  position: absolute; inset: 8px;
+  border: 3px solid var(--ink-mid);
+  box-shadow:
+    inset 0 0 0 2px var(--parchment-deep),
+    inset 0 0 0 5px var(--ink-faint),
+    0 0 0 2px var(--ink-mid);
+  pointer-events: none;
+}
+/* corner ornaments */
+#frame::after {
+  content: '✦';
+  position: absolute;
+  top: 4px; left: 4px;
+  font-size: 18px;
+  color: var(--seal-gold);
+  line-height: 1;
+  pointer-events: none;
+}
+.corner { position: fixed; font-size: 18px; color: var(--seal-gold); z-index: 201; pointer-events: none; line-height:1; }
+.corner.tr { top: 4px; right: 6px; }
+.corner.bl { bottom: 6px; left: 4px; }
+.corner.br { bottom: 6px; right: 6px; }
+
+/* ── LAYOUT ──────────────────────────────────────────────── */
+#layout {
+  display: flex;
+  flex-direction: column;
+  width: 100%; height: 100%;
+  padding: 11px; /* inset to sit inside the decorative frame border */
+}
+
+/* ── HEADER ──────────────────────────────────────────────── */
+#header {
+  height: var(--header-h);
+  background: var(--ink);
+  border-bottom: 2px solid var(--ink-faint);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 22px 0 20px;
+  flex-shrink: 0;
+  position: relative; z-index: 100;
+}
+#header h1 {
+  font-family: 'Cinzel', serif;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: .18em;
+  color: var(--seal-gold);
+  text-shadow: 0 0 18px var(--seal-glow);
+  text-transform: uppercase;
+}
+#header h1 span {
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: .22em;
+  color: var(--parchment-deep);
+  margin-left: 14px;
+  vertical-align: middle;
+  font-family: 'IM Fell English', serif;
+  font-style: italic;
+}
+/* Controls fill the space to the right of the title so the first group (NPC tool, Edit DB,
+   Players) sits on the left while Map Tools is pushed to the far right (margin-left:auto). */
+#header-controls { display: flex; gap: 8px; align-items: center; flex: 1; margin-left: 22px; }
+#maptools-wrap { margin-left: auto; }
+/* Atlas title; the DM View badge is absolutely positioned beneath it, centered under
+   the "Regional Atlas" subtitle span (positioned in JS by positionDmBadge). */
+.atlas-title-col { position: relative; display: flex; flex-direction: column; justify-content: center; }
+.atlas-title-col h1 { margin: 0; }
+
+/* ── BUTTONS ─────────────────────────────────────────────── */
+.btn {
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  padding: 5px 12px;
+  border: 1.5px solid var(--ink-faint);
+  background: transparent;
+  color: var(--parchment-deep);
+  cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.btn:hover { background: var(--ink-faint); color: var(--parchment); border-color: var(--parchment-deep); }
+.btn.active { background: var(--seal-red); color: var(--parchment); border-color: var(--seal-red-h); }
+.btn-gold {
+  background: var(--seal-gold);
+  color: var(--ink);
+  border-color: var(--seal-gold);
+  font-weight: 600;
+}
+.btn-gold:hover { background: #e0a430; border-color: #e0a430; }
+
+/* ── BODY ROW ────────────────────────────────────────────── */
+#body-row {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ── SIDEBAR ─────────────────────────────────────────────── */
+#sidebar {
+  width: var(--sidebar-w);
+  background: var(--parchment);
+  border-right: 2px solid var(--ink-mid);
+  display: flex; flex-direction: column;
+  flex-shrink: 0;
+  overflow: hidden;
+  position: relative;
+  z-index: 10;
+}
+#sidebar-head {
+  padding: 14px 16px 10px;
+  background: var(--parchment-dark);
+  border-bottom: 1.5px solid var(--parchment-deep);
+  flex-shrink: 0;
+}
+#sidebar-head h2 {
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-bottom: 8px;
+}
+#search {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1.5px solid var(--parchment-deep);
+  background: var(--parchment);
+  font-family: 'IM Fell English', serif;
+  font-size: 13px;
+  color: var(--ink);
+  outline: none;
+}
+#search:focus { border-color: var(--ink-faint); }
+#search::placeholder { color: var(--ink-faint); font-style: italic; }
+
+#location-count {
+  font-size: 10px;
+  font-family: 'Cinzel', serif;
+  letter-spacing: .1em;
+  color: var(--ink-faint);
+  margin-top: 6px;
+}
+
+#location-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+#location-list::-webkit-scrollbar { width: 6px; }
+#location-list::-webkit-scrollbar-track { background: var(--parchment-dark); }
+#location-list::-webkit-scrollbar-thumb { background: var(--parchment-deep); }
+
+/* ── LOCATION ENTRY ──────────────────────────────────────── */
+.loc-entry {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--parchment-dark);
+  cursor: pointer;
+  transition: background .12s;
+  position: relative;
+}
+.loc-entry:hover { background: var(--parchment-dark); }
+.loc-entry.highlighted { background: #f5e8c0; border-left: 3px solid var(--seal-gold); padding-left: 13px; }
+.loc-entry.hidden { display: none; }
+
+.loc-type {
+  font-family: 'Cinzel', serif;
+  font-size: 8.5px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-bottom: 2px;
+}
+.loc-name {
+  font-family: 'Cinzel', serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-mid);
+  margin-bottom: 3px;
+}
+.loc-desc {
+  font-size: 11.5px;
+  font-style: italic;
+  color: var(--ink-faint);
+  line-height: 1.4;
+}
+.loc-npc-count {
+  font-size: 10px;
+  font-family: 'Cinzel', serif;
+  color: var(--seal-gold, #b89040);
+  margin-top: 2px;
+  letter-spacing: 0.05em;
+}
+.loc-link {
+  display: inline-block;
+  margin-top: 6px;
+  font-family: 'Cinzel', serif;
+  font-size: 9px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--seal-red);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color .12s;
+}
+.loc-link:hover { border-bottom-color: var(--seal-red); }
+.loc-link.no-page { color: var(--ink-faint); pointer-events: none; }
+button.loc-link { background: none; border: none; border-bottom: 1px solid transparent; padding: 0; cursor: pointer; }
+button.loc-link:hover { border-bottom-color: var(--seal-red); }
+button.loc-link:disabled { color: var(--ink-faint); cursor: wait; }
+
+/* ── DM VIEW ─────────────────────────────────────────────── */
+.loc-name-input {
+  font-family: 'Cinzel', serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-mid);
+  margin-bottom: 3px;
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 0 2px;
+  width: 100%;
+  outline: none;
+  display: block;
+}
+.loc-name-input:hover { border-color: rgba(100,80,40,0.35); background: rgba(255,252,220,0.6); }
+.loc-name-input:focus { border-color: var(--seal-gold); background: rgba(255,252,220,0.9); }
+
+.loc-remove-btn {
+  position: absolute;
+  bottom: 8px; right: 10px;
+  border: 1px solid rgba(180,60,60,0.45);
+  background: rgba(180,60,60,0.1);
+  color: #c06060;
+  font-size: 13px;
+  line-height: 1;
+  padding: 1px 5px 2px;
+  cursor: pointer;
+  border-radius: 2px;
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s, color 0.15s;
+}
+.loc-entry:hover .loc-remove-btn { opacity: 1; }
+.loc-remove-btn:hover { background: rgba(180,60,60,0.28); color: #f09090; border-color: rgba(200,80,80,0.8); }
+
+.loc-vis-btn {
+  position: absolute;
+  top: 8px; right: 10px;
+  border: 1px solid rgba(60,180,80,0.7);
+  background: rgba(60,180,80,0.22);
+  color: #80f080;
+  font-family: 'Cinzel', serif;
+  font-size: 0.6rem;
+  padding: 2px 7px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+  z-index: 1;
+}
+.loc-vis-btn.hidden-state {
+  border-color: rgba(180,80,80,0.6);
+  background: rgba(180,80,80,0.18);
+  color: #f0a0a0;
+}
+.loc-entry.dm-hidden {
+  opacity: 0.45;
+  background: rgba(180,30,30,0.06);
+}
+.loc-entry.dm-hidden:hover { background: rgba(180,30,30,0.1); }
+
+/* ── MAP AREA ────────────────────────────────────────────── */
+#map-area {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  background: var(--ink);
+  cursor: grab;
+}
+#map-area.grabbing { cursor: grabbing; }
+#map-area.edit-mode { cursor: crosshair; }
+
+/* ── ZOOM/PAN VIEWPORT ───────────────────────────────────── */
+#map-viewport {
+  position: absolute;
+  top: 0; left: 0;
+  transform-origin: 0 0;
+  /* transform set by JS */
+}
+
+/* ── MAP IMAGE ───────────────────────────────────────────── */
+#map-img {
+  display: block;
+  /* actual size set by JS once image loads */
+  image-rendering: pixelated;
+  image-rendering: -webkit-optimize-contrast;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+/* fallback parchment when map.png missing */
+#map-img-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    repeating-linear-gradient(0deg,   transparent, transparent 39px, rgba(28,18,8,.06) 40px),
+    repeating-linear-gradient(90deg,  transparent, transparent 39px, rgba(28,18,8,.06) 40px),
+    radial-gradient(ellipse at 30% 40%, #e8d9aa 0%, #d4b96a 40%, #b8943a 100%);
+  font-family: 'Cinzel', serif;
+  font-size: 22px;
+  letter-spacing: .14em;
+  color: var(--ink-faint);
+  text-align: center;
+  flex-direction: column;
+  gap: 10px;
+}
+#map-img-fallback .fallback-sub {
+  font-family: 'IM Fell English', serif;
+  font-size: 13px;
+  font-style: italic;
+  letter-spacing: .04em;
+}
+
+/* ── PARTY MARKER ────────────────────────────────────────── */
+#party-marker {
+  position: absolute;
+  /* Centred on the point: "Party" above, the star on it, "Location" below. */
+  transform: translate(-50%, -50%);
+  z-index: 25;
+  pointer-events: none;
+  text-align: center;
+  transition: filter .15s;
+  display: none;
+}
+.party-star-wrap { display: flex; justify-content: center; }
+#party-marker.dm-movable {
+  pointer-events: all;
+  cursor: grab;
+}
+#party-marker.dm-movable:hover { filter: drop-shadow(0 0 6px rgba(80,200,40,.9)); }
+#party-marker.dragging { cursor: grabbing !important; filter: drop-shadow(0 0 8px rgba(80,200,40,1)); }
+/* Interlaced 8-pointed star (octagram): 8 equal-width chords that weave over/under.
+   A single gold "hot-spot" travels LEFT around the ring: one line is full gold, the two
+   beside it are half-gold (one rising red→orange→gold, one falling), and the rest trail
+   off as red at 50→40→30→20→10 brightness, then a fully-black line before the gold returns.
+   One keyframe walks a line through the whole 8-slot profile; the 8 chords are staggered by
+   1/8 of the loop each (via negative delay) so together they cover every slot at all times. */
+@keyframes party-gold-sweep {
+  /* slot 0 — the gold peak */
+  0%,   100% { stroke: #ffd23a; }                 /* full gold */
+  /* falling side (just left of peak in the timeline = the line the peak just passed) */
+  12.5%      { stroke: #f0a028; }                 /* half gold, warm, fading */
+  /* the red trail, dimming 50 → 10 */
+  25%        { stroke: hsl(0 90% 50%); }          /* red 50 */
+  37.5%      { stroke: hsl(0 90% 40%); }          /* red 40 */
+  50%        { stroke: hsl(0 90% 30%); }          /* red 30 */
+  62.5%      { stroke: hsl(0 90% 20%); }          /* red 20 */
+  75%        { stroke: hsl(0 88% 10%); }          /* red 10 */
+  81%        { stroke: #000; }                    /* the black line */
+  /* rising side — red → orange → gold as the peak approaches */
+  87.5%      { stroke: #c33010; }                 /* deep red, warming */
+  93.75%     { stroke: #e8781c; }                 /* orange */
+}
+.party-svg { display: block; overflow: visible; }
+.party-svg .oct-line {
+  fill: none;
+  stroke: #ffd23a;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  animation: party-gold-sweep 1.867s linear infinite;
+}
+/* Stagger the 8 chords by 1/8 loop each so the gold peak sweeps around the star. The delay
+   order follows the chords' physical position around the centre (by midpoint angle), NOT their
+   draw order — that keeps the gold peak and its two half-gold neighbours spatially adjacent.
+   Spatial ring order = children 2,3,4,5,6,7,8,1 (going leftward). 1.867s / 8 ≈ 0.233s per slot. */
+.party-svg .oct-line:nth-child(2) { animation-delay: 0s;      }
+.party-svg .oct-line:nth-child(3) { animation-delay: -0.233s; }
+.party-svg .oct-line:nth-child(4) { animation-delay: -0.467s; }
+.party-svg .oct-line:nth-child(5) { animation-delay: -0.7s;   }
+.party-svg .oct-line:nth-child(6) { animation-delay: -0.933s; }
+.party-svg .oct-line:nth-child(7) { animation-delay: -1.167s; }
+.party-svg .oct-line:nth-child(8) { animation-delay: -1.4s;   }
+.party-svg .oct-line:nth-child(1) { animation-delay: -1.633s; }
+.party-label {
+  white-space: nowrap;
+  /* Blue fill + gold border in Tribal Garamond, matching the other on-map labels. */
+  font-family: 'Tribal Garamond', 'Cinzel', serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: #122a6b;
+  -webkit-text-stroke: 0.5px #c8922a;
+  text-stroke: 0.5px #c8922a;
+  paint-order: stroke fill;
+  text-shadow: 0 0 4px rgba(0,0,0,.9), 0 0 8px rgba(0,0,0,.7);
+  pointer-events: none;
+  user-select: none;
+  line-height: 1.15;
+}
+.party-label-top { margin-bottom: 1px; }      /* "Party"    — above the star */
+.party-label-bot { margin-top: 1px; }         /* "Location" — below the star */
+
+/* ── MARKERS LAYER ───────────────────────────────────────── */
+#markers-layer {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+}
+
+/* ── HEX GRID OVERLAY ────────────────────────────────────── */
+/* Animated hexagonal travel grid drawn over the map image but
+   beneath the markers.  Fill (the hex outline colour) cycles
+   black → red over 10s, then back. */
+#hex-grid-overlay {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 5;
+  opacity: 0.55;
+}
+#hex-grid-overlay.hidden { display: none; }
+#hex-grid-overlay path {
+  animation: hex-grid-color 10s ease-in-out infinite alternate;
+}
+@keyframes hex-grid-color {
+  from { stroke: #000000; }
+  to   { stroke: #e01818; }
+}
+
+/* ── MAP TOOLS DROPDOWN (DM) ─────────────────────────────── */
+.maptools-wrap { position: relative; display: inline-block; }
+#maptools-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 172px;
+  background: var(--parchment);
+  border: 1px solid var(--ink-mid);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.45);
+  z-index: 200;
+  padding: 3px 0;
+}
+#maptools-menu.open { display: block; }
+.maptools-item {
+  display: block;
+  width: 100%;
+  padding: 8px 14px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid rgba(100,70,30,0.12);
+  text-align: left;
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background .12s, color .12s;
+}
+.maptools-item:hover { background: var(--parchment-deep); }
+/* An active toggle (grid on, coords on, edit on, locations hidden) reads as a filled row */
+.maptools-item.active { background: var(--seal-red); color: var(--parchment); }
+.maptools-sub { position: relative; border-bottom: 1px solid rgba(100,70,30,0.12); }
+.maptools-sub > .maptools-item { border-bottom: none; }
+/* Inline hex-grid cell-size field, revealed only when the grid is on */
+.maptools-inline { display: none; padding: 6px 14px 9px; background: rgba(100,70,30,0.06); }
+.maptools-inline.show { display: block; }
+.maptools-inline label {
+  display: block;
+  font-family: 'Cinzel', serif;
+  font-size: 9px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--ink-mid);
+  margin-bottom: 4px;
+}
+.maptools-inline input {
+  width: 100%;
+  background: #fffdf6;
+  border: 1px solid var(--ink-faint);
+  color: var(--ink);
+  font-family: 'Cinzel', serif;
+  font-size: 13px;
+  padding: 4px 6px;
+  border-radius: 3px;
+  outline: none;
+}
+.maptools-inline input:focus { border-color: var(--seal-gold, #c8922a); }
+.maptools-inline-hint { margin-top: 5px; font-size: 9px; font-style: italic; color: var(--ink-mid); }
+/* Nested "Add" submenu, opens to the left of the parent menu */
+.maptools-item-caret { display: flex !important; align-items: center; justify-content: space-between; }
+.maptools-caret { font-size: 9px; opacity: .7; }
+.maptools-submenu {
+  display: none;
+  position: absolute;
+  top: 0;
+  right: 100%;
+  margin-right: 1px;
+  min-width: 148px;
+  background: var(--parchment);
+  border: 1px solid var(--ink-mid);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.45);
+  z-index: 210;
+  padding: 3px 0;
+}
+.maptools-submenu.open { display: block; }
+/* Gold variant of the NPC-tool pill, used for the "Edit DB" button */
+.npc-tool-btn-gold {
+  background: rgba(200,146,42,0.22);
+  border-color: rgba(200,146,42,0.55);
+  color: #e8c96a;
+}
+.npc-tool-btn-gold:hover { background: rgba(200,146,42,0.45); color: #fff; }
+
+/* ── INDIVIDUAL MARKER ───────────────────────────────────── */
+.marker {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  pointer-events: none;       /* invisible + non-interactive outside edit mode */
+  cursor: pointer;
+  z-index: 10;
+  transition: filter .15s;
+}
+
+/* wax-seal SVG marker */
+.marker-seal {
+  width: 28px; height: 28px;
+  display: block;
+  opacity: 0;
+  transition: opacity .15s;
+}
+.marker-label {
+  position: absolute;
+  left: 50%; top: calc(100% + 2px);
+  transform: translateX(-50%);
+  white-space: nowrap;
+  /* Blue fill + gold border in Tribal Garamond (on-map label styling). */
+  font-family: 'Tribal Garamond', 'Cinzel', serif;
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  color: #122a6b;
+  -webkit-text-stroke: 0.7px #c8922a;
+  text-stroke: 0.7px #c8922a;
+  paint-order: stroke fill;
+  text-shadow: 0 0 5px rgba(242,232,208,0.9);      /* soft parchment halo for legibility */
+  pointer-events: none;
+  user-select: none;
+  opacity: 0;
+  transition: opacity .15s;
+}
+
+/* Edit mode: show everything and restore interactivity */
+#map-area.edit-mode .marker                     { pointer-events: all; }
+#map-area.edit-mode .marker .marker-seal        { opacity: 1; }
+#map-area.edit-mode .marker:hover               { filter: drop-shadow(0 0 6px var(--seal-gold)); z-index: 20; }
+#map-area.edit-mode .marker.active              { filter: drop-shadow(0 0 10px var(--seal-gold)); z-index: 30; }
+#map-area.edit-mode .marker.edit-dragging       { cursor: move !important; z-index: 50; }
+
+.marker-label.show { opacity: 1; }
+
+/* ── TOOLTIP ─────────────────────────────────────────────── */
+#tooltip {
+  position: fixed;
+  z-index: 150;
+  background: var(--ink);
+  border: 1.5px solid var(--ink-faint);
+  padding: 10px 14px;
+  max-width: 240px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .15s;
+}
+#tooltip.visible { opacity: 1; }
+#tooltip-type {
+  font-family: 'Cinzel', serif;
+  font-size: 8px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--seal-gold);
+  margin-bottom: 3px;
+}
+#tooltip-name {
+  font-family: 'Cinzel', serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--parchment);
+  margin-bottom: 5px;
+}
+#tooltip-desc {
+  font-size: 11.5px;
+  font-style: italic;
+  color: var(--parchment-deep);
+  line-height: 1.45;
+}
+#tooltip-hint {
+  margin-top: 7px;
+  font-family: 'Cinzel', serif;
+  font-size: 8.5px;
+  letter-spacing: .1em;
+  color: var(--seal-gold);
+}
+
+/* ── ZOOM CONTROLS ───────────────────────────────────────── */
+#zoom-controls {
+  position: absolute;
+  bottom: 22px; right: 18px;
+  display: flex; flex-direction: column; gap: 4px;
+  z-index: 50;
+}
+.zoom-btn {
+  width: 32px; height: 32px;
+  background: var(--ink-mid);
+  border: 1.5px solid var(--ink-faint);
+  color: var(--parchment-deep);
+  font-size: 18px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Cinzel', serif;
+  transition: background .12s, color .12s;
+  user-select: none;
+}
+.zoom-btn:hover { background: var(--ink-faint); color: var(--parchment); }
+#zoom-label {
+  text-align: center;
+  font-family: 'Cinzel', serif;
+  font-size: 9px;
+  letter-spacing: .1em;
+  color: var(--parchment-deep);
+  user-select: none;
+}
+
+/* ── COMPASS ROSE ─────────────────────────────────────────── */
+#compass {
+  position: absolute;
+  bottom: 22px; left: 18px;
+  z-index: 50;
+  opacity: .75;
+  pointer-events: none;
+}
+
+/* ── PLAYER LINK BAR ─────────────────────────────────────── */
+.player-link-bar {
+  display: none;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(20,60,20,0.5);
+  border: 1px solid rgba(60,160,60,0.4);
+  border-radius: 4px;
+  padding: 4px 10px;
+  max-width: 380px;
+}
+.player-link-bar.visible { display: flex; }
+.player-link-label {
+  font-family: 'Cinzel', serif;
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #80c880;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.player-link-url {
+  font-size: 0.68rem;
+  color: #a8e0a8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+.player-link-copy {
+  background: rgba(60,160,60,0.2);
+  border: 1px solid rgba(60,160,60,0.4);
+  color: #80c880;
+  font-size: 0.65rem;
+  padding: 2px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-family: 'Cinzel', serif;
+  transition: background 0.12s;
+}
+.player-link-copy:hover { background: rgba(60,160,60,0.4); color: #fff; }
+.player-link-copy.copied { background: rgba(60,160,60,0.6); color: #fff; }
+/* NPC Tool button — standalone, left of the Players field, red like the DM-view accents */
+.npc-tool-btn {
+  background: rgba(180,30,30,0.2);
+  border: 1px solid rgba(200,50,50,0.45);
+  color: #e07070;
+  font-size: 0.65rem;
+  padding: 2px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-family: 'Cinzel', serif;
+  transition: background 0.12s;
+}
+.npc-tool-btn:hover { background: rgba(200,50,50,0.4); color: #fff; }
+
+/* ── PLAYER LINKS MODAL ─────────────────────────────────── */
+#plkModal { position: fixed; inset: 0; z-index: 9000; display: none; align-items: center; justify-content: center; }
+#plkModal.open { display: flex; }
+.plk-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.6); }
+.plk-dialog { position: relative; background: #161b22; color: #cdd9e5; border: 1px solid #30363d; border-radius: 8px; width: min(660px,94vw); max-height: 88vh; display: flex; flex-direction: column; box-shadow: 0 12px 48px rgba(0,0,0,0.6); font-family: system-ui,'Segoe UI',sans-serif; }
+.plk-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid #30363d; }
+.plk-title { font-size: 1rem; font-weight: 600; color: #e8c96a; }
+.plk-close { background: none; border: none; color: #8b949e; font-size: 1.1rem; cursor: pointer; }
+.plk-body { padding: 12px 16px; overflow-y: auto; }
+.plk-status { font-size: 0.76rem; color: #8b949e; margin-bottom: 10px; line-height: 1.6; }
+.plk-status .warn { color: #d29922; }
+.plk-status .ok { color: #3fb950; }
+.plk-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+.plk-table th { text-align: left; font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.07em; color: #8b949e; padding: 4px 6px; border-bottom: 1px solid #30363d; }
+.plk-table td { padding: 4px 6px; border-bottom: 1px solid #21262d; vertical-align: middle; }
+.plk-table input, .plk-table select { width: 100%; background: #0d1117; border: 1px solid #30363d; color: #cdd9e5; border-radius: 3px; padding: 3px 5px; font-size: 0.78rem; }
+.plk-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #545d68; }
+.plk-dot.on { background: #3fb950; }
+.plk-mini { background: #21262d; border: 1px solid #30363d; color: #cdd9e5; border-radius: 3px; font-size: 0.68rem; padding: 3px 8px; cursor: pointer; }
+.plk-mini:hover { background: #2d333b; }
+.plk-mini.danger:hover { background: #8b2020; border-color: #c04040; color: #fff; }
+.plk-foot { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-top: 1px solid #30363d; flex-wrap: wrap; }
+.plk-btn { background: #2a1e0c; color: #e8c96a; border: 1px solid #6a4a10; border-radius: 4px; padding: 6px 14px; cursor: pointer; font-size: 0.82rem; }
+.plk-btn:hover { background: #3a2a10; color: #fff; }
+.plk-btn.prim { background: #b8860b; color: #000; border-color: #d4a017; font-weight: 600; }
+.plk-btn.prim:hover { background: #d4a017; }
+.plk-send-msg { font-size: 0.76rem; color: #8b949e; }
+
+/* ── SCROLLBAR (sidebar) ─────────────────────────────────── */
+* { scrollbar-width: thin; scrollbar-color: var(--parchment-deep) var(--parchment-dark); }
+
+/* ── COMPASS LOADING ANIMATION ───────────────────────────── */
+@keyframes compass-loading {
+  0%   { transform: rotate(0deg);    }
+  18%  { transform: rotate(320deg);  }   /* fast burst */
+  28%  { transform: rotate(340deg);  }   /* brief slow */
+  46%  { transform: rotate(660deg);  }   /* fast burst */
+  56%  { transform: rotate(680deg);  }   /* brief slow */
+  74%  { transform: rotate(1000deg); }   /* fast burst */
+  84%  { transform: rotate(1020deg); }   /* brief slow */
+  100% { transform: rotate(1360deg); }   /* fast to end */
+}
+#compass-needle {
+  transform-box:    fill-box;
+  transform-origin: 50% 50%;
+}
+#compass-needle.loading {
+  animation: compass-loading 2.4s linear infinite;
+}
+
+/* ── COORDS DISPLAY ─────────────────────────────────────── */
+#coords-display {
+  display: none;
+  position: absolute;
+  bottom: 22px; left: 96px;   /* right of the compass */
+  background: rgba(28,18,8,.88);
+  border: 1px solid var(--ink-faint);
+  padding: 5px 10px;
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  letter-spacing: .1em;
+  color: var(--parchment-deep);
+  z-index: 50;
+  pointer-events: none;
+  white-space: nowrap;
+  min-width: 110px;
+  text-align: center;
+}
+#map-area.show-coords #coords-display { display: block; }
+
+/* ── PLACEMENT MODE ─────────────────────────────────────── */
+#map-area.placement-mode { cursor: crosshair !important; }
+#placement-banner {
+  display: none;
+  position: absolute;
+  top: 12px; left: 50%; transform: translateX(-50%);
+  background: var(--seal-gold);
+  color: var(--ink);
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  padding: 7px 20px;
+  z-index: 60;
+  pointer-events: none;
+  white-space: nowrap;
+  box-shadow: 0 2px 12px var(--shadow);
+}
+#map-area.placement-mode #placement-banner { display: block; }
+
+/* ── TEXT-ONLY MARKER ───────────────────────────────────── */
+.marker.marker-text { pointer-events: none; }
+#map-area.edit-mode .marker.marker-text { pointer-events: all; }
+.marker.marker-text .marker-label {
+  position: relative;
+  top: auto; left: auto;
+  transform: none;
+  opacity: 1 !important;
+  /* Blue fill + gold border in Tribal Garamond, on a parchment chip. */
+  font-family: 'Tribal Garamond', 'IM Fell English', serif;
+  font-size: 12px;
+  font-style: normal;
+  color: #122a6b;
+  -webkit-text-stroke: 0.4px #c8922a;
+  text-stroke: 0.4px #c8922a;
+  paint-order: stroke fill;
+  text-shadow: none;
+  background: rgba(242,232,204,0.88);
+  padding: 1px 6px;
+  border-radius: 2px;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+}
+#map-area.edit-mode .marker.marker-text .marker-label { pointer-events: auto; }
+
+/* ── ADD LOCATION MODAL ─────────────────────────────────── */
+#addtown-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(28,18,8,.82);
+  z-index: 300;
+  align-items: center; justify-content: center;
+}
+#addtown-overlay.open { display: flex; }
+#addtown-box {
+  background: var(--parchment);
+  border: 2px solid var(--ink-mid);
+  padding: 28px 32px;
+  max-width: 420px; width: 90%;
+}
+#addtown-box h3 {
+  font-family: 'Cinzel', serif;
+  font-size: 13px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--ink);
+  margin-bottom: 16px;
+}
+#addtown-name {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1.5px solid var(--parchment-deep);
+  background: var(--parchment);
+  font-family: 'Cinzel', serif;
+  font-size: 14px;
+  color: var(--ink);
+  outline: none;
+  margin-bottom: 8px;
+  box-sizing: border-box;
+}
+#addtown-name:focus { border-color: var(--ink-faint); }
+#addtown-hint {
+  font-family: 'IM Fell English', serif;
+  font-size: 11px;
+  font-style: italic;
+  color: var(--ink-faint);
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+#addtown-actions { display: flex; gap: 8px; }

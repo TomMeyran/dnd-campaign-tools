@@ -1,938 +1,19 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Regional Atlas</title>
-<style>
-/* ── TOKENS ─────────────────────────────────────────────── */
-:root {
-  --ink:        #1c1208;
-  --ink-mid:    #3b2a14;
-  --ink-faint:  #6b4f2e;
-  --parchment:  #f2e8d0;
-  --parchment-dark: #e0cfa8;
-  --parchment-deep: #c9b47e;
-  --seal-red:   #8b2020;
-  --seal-red-h: #a82828;
-  --seal-gold:  #c8922a;
-  --seal-glow:  rgba(200,146,42,0.35);
-  --shadow:     rgba(28,18,8,0.55);
-  --sidebar-w:  300px;
-  --header-h:   54px;
-}
-
-/* ── RESET ───────────────────────────────────────────────── */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { width: 100%; height: 100%; overflow: hidden; background: var(--ink); }
-
-/* ── TYPOGRAPHY ──────────────────────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=IM+Fell+English:ital@0;1&display=swap');
-/* On-map label face (Tribal Garamond, served locally). */
-@font-face {
-  font-family: 'Tribal Garamond';
-  src: url('TribalGaramond.ttf') format('truetype');
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-/* Blue fill + gold border in Tribal Garamond is applied directly to the on-map label
-   classes below: .marker-label (location names), .marker-text .marker-label (text markers),
-   and .party-label (the party marker's "Party"/"Location"). */
-
-body {
-  font-family: 'IM Fell English', Georgia, serif;
-  color: var(--ink);
-}
-.display { font-family: 'Cinzel', 'Trajan Pro', serif; }
-
-/* ── INKED BORDER FRAME (signature element) ──────────────── */
-#frame {
-  position: fixed; inset: 0;
-  pointer-events: none;
-  z-index: 200;
-}
-#frame::before {
-  content: '';
-  position: absolute; inset: 8px;
-  border: 3px solid var(--ink-mid);
-  box-shadow:
-    inset 0 0 0 2px var(--parchment-deep),
-    inset 0 0 0 5px var(--ink-faint),
-    0 0 0 2px var(--ink-mid);
-  pointer-events: none;
-}
-/* corner ornaments */
-#frame::after {
-  content: '✦';
-  position: absolute;
-  top: 4px; left: 4px;
-  font-size: 18px;
-  color: var(--seal-gold);
-  line-height: 1;
-  pointer-events: none;
-}
-.corner { position: fixed; font-size: 18px; color: var(--seal-gold); z-index: 201; pointer-events: none; line-height:1; }
-.corner.tr { top: 4px; right: 6px; }
-.corner.bl { bottom: 6px; left: 4px; }
-.corner.br { bottom: 6px; right: 6px; }
-
-/* ── LAYOUT ──────────────────────────────────────────────── */
-#layout {
-  display: flex;
-  flex-direction: column;
-  width: 100%; height: 100%;
-  padding: 11px; /* inset to sit inside the decorative frame border */
-}
-
-/* ── HEADER ──────────────────────────────────────────────── */
-#header {
-  height: var(--header-h);
-  background: var(--ink);
-  border-bottom: 2px solid var(--ink-faint);
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 0 22px 0 20px;
-  flex-shrink: 0;
-  position: relative; z-index: 100;
-}
-#header h1 {
-  font-family: 'Cinzel', serif;
-  font-size: 20px;
-  font-weight: 700;
-  letter-spacing: .18em;
-  color: var(--seal-gold);
-  text-shadow: 0 0 18px var(--seal-glow);
-  text-transform: uppercase;
-}
-#header h1 span {
-  font-size: 11px;
-  font-weight: 400;
-  letter-spacing: .22em;
-  color: var(--parchment-deep);
-  margin-left: 14px;
-  vertical-align: middle;
-  font-family: 'IM Fell English', serif;
-  font-style: italic;
-}
-/* Controls fill the space to the right of the title so the first group (NPC tool, Edit DB,
-   Players) sits on the left while Map Tools is pushed to the far right (margin-left:auto). */
-#header-controls { display: flex; gap: 8px; align-items: center; flex: 1; margin-left: 22px; }
-#maptools-wrap { margin-left: auto; }
-/* Atlas title; the DM View badge is absolutely positioned beneath it, centered under
-   the "Regional Atlas" subtitle span (positioned in JS by positionDmBadge). */
-.atlas-title-col { position: relative; display: flex; flex-direction: column; justify-content: center; }
-.atlas-title-col h1 { margin: 0; }
-
-/* ── BUTTONS ─────────────────────────────────────────────── */
-.btn {
-  font-family: 'Cinzel', serif;
-  font-size: 10px;
-  letter-spacing: .12em;
-  text-transform: uppercase;
-  padding: 5px 12px;
-  border: 1.5px solid var(--ink-faint);
-  background: transparent;
-  color: var(--parchment-deep);
-  cursor: pointer;
-  transition: background .15s, color .15s, border-color .15s;
-}
-.btn:hover { background: var(--ink-faint); color: var(--parchment); border-color: var(--parchment-deep); }
-.btn.active { background: var(--seal-red); color: var(--parchment); border-color: var(--seal-red-h); }
-.btn-gold {
-  background: var(--seal-gold);
-  color: var(--ink);
-  border-color: var(--seal-gold);
-  font-weight: 600;
-}
-.btn-gold:hover { background: #e0a430; border-color: #e0a430; }
-
-/* ── BODY ROW ────────────────────────────────────────────── */
-#body-row {
-  display: flex;
-  flex: 1;
-  overflow: hidden;
-}
-
-/* ── SIDEBAR ─────────────────────────────────────────────── */
-#sidebar {
-  width: var(--sidebar-w);
-  background: var(--parchment);
-  border-right: 2px solid var(--ink-mid);
-  display: flex; flex-direction: column;
-  flex-shrink: 0;
-  overflow: hidden;
-  position: relative;
-  z-index: 10;
-}
-#sidebar-head {
-  padding: 14px 16px 10px;
-  background: var(--parchment-dark);
-  border-bottom: 1.5px solid var(--parchment-deep);
-  flex-shrink: 0;
-}
-#sidebar-head h2 {
-  font-family: 'Cinzel', serif;
-  font-size: 11px;
-  letter-spacing: .18em;
-  text-transform: uppercase;
-  color: var(--ink-faint);
-  margin-bottom: 8px;
-}
-#search {
-  width: 100%;
-  padding: 6px 10px;
-  border: 1.5px solid var(--parchment-deep);
-  background: var(--parchment);
-  font-family: 'IM Fell English', serif;
-  font-size: 13px;
-  color: var(--ink);
-  outline: none;
-}
-#search:focus { border-color: var(--ink-faint); }
-#search::placeholder { color: var(--ink-faint); font-style: italic; }
-
-#location-count {
-  font-size: 10px;
-  font-family: 'Cinzel', serif;
-  letter-spacing: .1em;
-  color: var(--ink-faint);
-  margin-top: 6px;
-}
-
-#location-list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 4px 0;
-}
-#location-list::-webkit-scrollbar { width: 6px; }
-#location-list::-webkit-scrollbar-track { background: var(--parchment-dark); }
-#location-list::-webkit-scrollbar-thumb { background: var(--parchment-deep); }
-
-/* ── LOCATION ENTRY ──────────────────────────────────────── */
-.loc-entry {
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--parchment-dark);
-  cursor: pointer;
-  transition: background .12s;
-  position: relative;
-}
-.loc-entry:hover { background: var(--parchment-dark); }
-.loc-entry.highlighted { background: #f5e8c0; border-left: 3px solid var(--seal-gold); padding-left: 13px; }
-.loc-entry.hidden { display: none; }
-
-.loc-type {
-  font-family: 'Cinzel', serif;
-  font-size: 8.5px;
-  letter-spacing: .16em;
-  text-transform: uppercase;
-  color: var(--ink-faint);
-  margin-bottom: 2px;
-}
-.loc-name {
-  font-family: 'Cinzel', serif;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--ink-mid);
-  margin-bottom: 3px;
-}
-.loc-desc {
-  font-size: 11.5px;
-  font-style: italic;
-  color: var(--ink-faint);
-  line-height: 1.4;
-}
-.loc-npc-count {
-  font-size: 10px;
-  font-family: 'Cinzel', serif;
-  color: var(--seal-gold, #b89040);
-  margin-top: 2px;
-  letter-spacing: 0.05em;
-}
-.loc-link {
-  display: inline-block;
-  margin-top: 6px;
-  font-family: 'Cinzel', serif;
-  font-size: 9px;
-  letter-spacing: .12em;
-  text-transform: uppercase;
-  color: var(--seal-red);
-  text-decoration: none;
-  border-bottom: 1px solid transparent;
-  transition: border-color .12s;
-}
-.loc-link:hover { border-bottom-color: var(--seal-red); }
-.loc-link.no-page { color: var(--ink-faint); pointer-events: none; }
-button.loc-link { background: none; border: none; border-bottom: 1px solid transparent; padding: 0; cursor: pointer; }
-button.loc-link:hover { border-bottom-color: var(--seal-red); }
-button.loc-link:disabled { color: var(--ink-faint); cursor: wait; }
-
-/* ── DM VIEW ─────────────────────────────────────────────── */
-.loc-name-input {
-  font-family: 'Cinzel', serif;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--ink-mid);
-  margin-bottom: 3px;
-  background: transparent;
-  border: 1px solid transparent;
-  padding: 0 2px;
-  width: 100%;
-  outline: none;
-  display: block;
-}
-.loc-name-input:hover { border-color: rgba(100,80,40,0.35); background: rgba(255,252,220,0.6); }
-.loc-name-input:focus { border-color: var(--seal-gold); background: rgba(255,252,220,0.9); }
-
-.loc-remove-btn {
-  position: absolute;
-  bottom: 8px; right: 10px;
-  border: 1px solid rgba(180,60,60,0.45);
-  background: rgba(180,60,60,0.1);
-  color: #c06060;
-  font-size: 13px;
-  line-height: 1;
-  padding: 1px 5px 2px;
-  cursor: pointer;
-  border-radius: 2px;
-  z-index: 1;
-  opacity: 0;
-  transition: opacity 0.15s, background 0.15s, color 0.15s;
-}
-.loc-entry:hover .loc-remove-btn { opacity: 1; }
-.loc-remove-btn:hover { background: rgba(180,60,60,0.28); color: #f09090; border-color: rgba(200,80,80,0.8); }
-
-.loc-vis-btn {
-  position: absolute;
-  top: 8px; right: 10px;
-  border: 1px solid rgba(60,180,80,0.7);
-  background: rgba(60,180,80,0.22);
-  color: #80f080;
-  font-family: 'Cinzel', serif;
-  font-size: 0.6rem;
-  padding: 2px 7px;
-  border-radius: 2px;
-  cursor: pointer;
-  transition: all 0.15s;
-  white-space: nowrap;
-  z-index: 1;
-}
-.loc-vis-btn.hidden-state {
-  border-color: rgba(180,80,80,0.6);
-  background: rgba(180,80,80,0.18);
-  color: #f0a0a0;
-}
-.loc-entry.dm-hidden {
-  opacity: 0.45;
-  background: rgba(180,30,30,0.06);
-}
-.loc-entry.dm-hidden:hover { background: rgba(180,30,30,0.1); }
-
-/* ── MAP AREA ────────────────────────────────────────────── */
-#map-area {
-  flex: 1;
-  overflow: hidden;
-  position: relative;
-  background: var(--ink);
-  cursor: grab;
-}
-#map-area.grabbing { cursor: grabbing; }
-#map-area.edit-mode { cursor: crosshair; }
-
-/* ── ZOOM/PAN VIEWPORT ───────────────────────────────────── */
-#map-viewport {
-  position: absolute;
-  top: 0; left: 0;
-  transform-origin: 0 0;
-  /* transform set by JS */
-}
-
-/* ── MAP IMAGE ───────────────────────────────────────────── */
-#map-img {
-  display: block;
-  /* actual size set by JS once image loads */
-  image-rendering: pixelated;
-  image-rendering: -webkit-optimize-contrast;
-  user-select: none;
-  -webkit-user-drag: none;
-}
-/* fallback parchment when map.png missing */
-#map-img-fallback {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background:
-    repeating-linear-gradient(0deg,   transparent, transparent 39px, rgba(28,18,8,.06) 40px),
-    repeating-linear-gradient(90deg,  transparent, transparent 39px, rgba(28,18,8,.06) 40px),
-    radial-gradient(ellipse at 30% 40%, #e8d9aa 0%, #d4b96a 40%, #b8943a 100%);
-  font-family: 'Cinzel', serif;
-  font-size: 22px;
-  letter-spacing: .14em;
-  color: var(--ink-faint);
-  text-align: center;
-  flex-direction: column;
-  gap: 10px;
-}
-#map-img-fallback .fallback-sub {
-  font-family: 'IM Fell English', serif;
-  font-size: 13px;
-  font-style: italic;
-  letter-spacing: .04em;
-}
-
-/* ── PARTY MARKER ────────────────────────────────────────── */
-#party-marker {
-  position: absolute;
-  /* Centred on the point: "Party" above, the star on it, "Location" below. */
-  transform: translate(-50%, -50%);
-  z-index: 25;
-  pointer-events: none;
-  text-align: center;
-  transition: filter .15s;
-  display: none;
-}
-.party-star-wrap { display: flex; justify-content: center; }
-#party-marker.dm-movable {
-  pointer-events: all;
-  cursor: grab;
-}
-#party-marker.dm-movable:hover { filter: drop-shadow(0 0 6px rgba(80,200,40,.9)); }
-#party-marker.dragging { cursor: grabbing !important; filter: drop-shadow(0 0 8px rgba(80,200,40,1)); }
-/* Interlaced 8-pointed star (octagram): 8 equal-width chords that weave over/under.
-   A single gold "hot-spot" travels LEFT around the ring: one line is full gold, the two
-   beside it are half-gold (one rising red→orange→gold, one falling), and the rest trail
-   off as red at 50→40→30→20→10 brightness, then a fully-black line before the gold returns.
-   One keyframe walks a line through the whole 8-slot profile; the 8 chords are staggered by
-   1/8 of the loop each (via negative delay) so together they cover every slot at all times. */
-@keyframes party-gold-sweep {
-  /* slot 0 — the gold peak */
-  0%,   100% { stroke: #ffd23a; }                 /* full gold */
-  /* falling side (just left of peak in the timeline = the line the peak just passed) */
-  12.5%      { stroke: #f0a028; }                 /* half gold, warm, fading */
-  /* the red trail, dimming 50 → 10 */
-  25%        { stroke: hsl(0 90% 50%); }          /* red 50 */
-  37.5%      { stroke: hsl(0 90% 40%); }          /* red 40 */
-  50%        { stroke: hsl(0 90% 30%); }          /* red 30 */
-  62.5%      { stroke: hsl(0 90% 20%); }          /* red 20 */
-  75%        { stroke: hsl(0 88% 10%); }          /* red 10 */
-  81%        { stroke: #000; }                    /* the black line */
-  /* rising side — red → orange → gold as the peak approaches */
-  87.5%      { stroke: #c33010; }                 /* deep red, warming */
-  93.75%     { stroke: #e8781c; }                 /* orange */
-}
-.party-svg { display: block; overflow: visible; }
-.party-svg .oct-line {
-  fill: none;
-  stroke: #ffd23a;
-  stroke-width: 2.4;
-  stroke-linecap: round;
-  animation: party-gold-sweep 1.867s linear infinite;
-}
-/* Stagger the 8 chords by 1/8 loop each so the gold peak sweeps around the star. The delay
-   order follows the chords' physical position around the centre (by midpoint angle), NOT their
-   draw order — that keeps the gold peak and its two half-gold neighbours spatially adjacent.
-   Spatial ring order = children 2,3,4,5,6,7,8,1 (going leftward). 1.867s / 8 ≈ 0.233s per slot. */
-.party-svg .oct-line:nth-child(2) { animation-delay: 0s;      }
-.party-svg .oct-line:nth-child(3) { animation-delay: -0.233s; }
-.party-svg .oct-line:nth-child(4) { animation-delay: -0.467s; }
-.party-svg .oct-line:nth-child(5) { animation-delay: -0.7s;   }
-.party-svg .oct-line:nth-child(6) { animation-delay: -0.933s; }
-.party-svg .oct-line:nth-child(7) { animation-delay: -1.167s; }
-.party-svg .oct-line:nth-child(8) { animation-delay: -1.4s;   }
-.party-svg .oct-line:nth-child(1) { animation-delay: -1.633s; }
-.party-label {
-  white-space: nowrap;
-  /* Blue fill + gold border in Tribal Garamond, matching the other on-map labels. */
-  font-family: 'Tribal Garamond', 'Cinzel', serif;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: .1em;
-  text-transform: uppercase;
-  color: #122a6b;
-  -webkit-text-stroke: 0.5px #c8922a;
-  text-stroke: 0.5px #c8922a;
-  paint-order: stroke fill;
-  text-shadow: 0 0 4px rgba(0,0,0,.9), 0 0 8px rgba(0,0,0,.7);
-  pointer-events: none;
-  user-select: none;
-  line-height: 1.15;
-}
-.party-label-top { margin-bottom: 1px; }      /* "Party"    — above the star */
-.party-label-bot { margin-top: 1px; }         /* "Location" — below the star */
-
-/* ── MARKERS LAYER ───────────────────────────────────────── */
-#markers-layer {
-  position: absolute;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
-  pointer-events: none;
-}
-
-/* ── HEX GRID OVERLAY ────────────────────────────────────── */
-/* Animated hexagonal travel grid drawn over the map image but
-   beneath the markers.  Fill (the hex outline colour) cycles
-   black → red over 10s, then back. */
-#hex-grid-overlay {
-  position: absolute;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
-  pointer-events: none;
-  z-index: 5;
-  opacity: 0.55;
-}
-#hex-grid-overlay.hidden { display: none; }
-#hex-grid-overlay path {
-  animation: hex-grid-color 10s ease-in-out infinite alternate;
-}
-@keyframes hex-grid-color {
-  from { stroke: #000000; }
-  to   { stroke: #e01818; }
-}
-
-/* ── MAP TOOLS DROPDOWN (DM) ─────────────────────────────── */
-.maptools-wrap { position: relative; display: inline-block; }
-#maptools-menu {
-  display: none;
-  position: absolute;
-  top: calc(100% + 4px);
-  right: 0;
-  min-width: 172px;
-  background: var(--parchment);
-  border: 1px solid var(--ink-mid);
-  box-shadow: 0 4px 16px rgba(0,0,0,0.45);
-  z-index: 200;
-  padding: 3px 0;
-}
-#maptools-menu.open { display: block; }
-.maptools-item {
-  display: block;
-  width: 100%;
-  padding: 8px 14px;
-  background: none;
-  border: none;
-  border-bottom: 1px solid rgba(100,70,30,0.12);
-  text-align: left;
-  font-family: 'Cinzel', serif;
-  font-size: 11px;
-  letter-spacing: .06em;
-  text-transform: uppercase;
-  color: var(--ink);
-  cursor: pointer;
-  transition: background .12s, color .12s;
-}
-.maptools-item:hover { background: var(--parchment-deep); }
-/* An active toggle (grid on, coords on, edit on, locations hidden) reads as a filled row */
-.maptools-item.active { background: var(--seal-red); color: var(--parchment); }
-.maptools-sub { position: relative; border-bottom: 1px solid rgba(100,70,30,0.12); }
-.maptools-sub > .maptools-item { border-bottom: none; }
-/* Inline hex-grid cell-size field, revealed only when the grid is on */
-.maptools-inline { display: none; padding: 6px 14px 9px; background: rgba(100,70,30,0.06); }
-.maptools-inline.show { display: block; }
-.maptools-inline label {
-  display: block;
-  font-family: 'Cinzel', serif;
-  font-size: 9px;
-  letter-spacing: .1em;
-  text-transform: uppercase;
-  color: var(--ink-mid);
-  margin-bottom: 4px;
-}
-.maptools-inline input {
-  width: 100%;
-  background: #fffdf6;
-  border: 1px solid var(--ink-faint);
-  color: var(--ink);
-  font-family: 'Cinzel', serif;
-  font-size: 13px;
-  padding: 4px 6px;
-  border-radius: 3px;
-  outline: none;
-}
-.maptools-inline input:focus { border-color: var(--seal-gold, #c8922a); }
-.maptools-inline-hint { margin-top: 5px; font-size: 9px; font-style: italic; color: var(--ink-mid); }
-/* Nested "Add" submenu, opens to the left of the parent menu */
-.maptools-item-caret { display: flex !important; align-items: center; justify-content: space-between; }
-.maptools-caret { font-size: 9px; opacity: .7; }
-.maptools-submenu {
-  display: none;
-  position: absolute;
-  top: 0;
-  right: 100%;
-  margin-right: 1px;
-  min-width: 148px;
-  background: var(--parchment);
-  border: 1px solid var(--ink-mid);
-  box-shadow: 0 4px 16px rgba(0,0,0,0.45);
-  z-index: 210;
-  padding: 3px 0;
-}
-.maptools-submenu.open { display: block; }
-/* Gold variant of the NPC-tool pill, used for the "Edit DB" button */
-.npc-tool-btn-gold {
-  background: rgba(200,146,42,0.22);
-  border-color: rgba(200,146,42,0.55);
-  color: #e8c96a;
-}
-.npc-tool-btn-gold:hover { background: rgba(200,146,42,0.45); color: #fff; }
-
-/* ── INDIVIDUAL MARKER ───────────────────────────────────── */
-.marker {
-  position: absolute;
-  transform: translate(-50%, -100%);
-  pointer-events: none;       /* invisible + non-interactive outside edit mode */
-  cursor: pointer;
-  z-index: 10;
-  transition: filter .15s;
-}
-
-/* wax-seal SVG marker */
-.marker-seal {
-  width: 28px; height: 28px;
-  display: block;
-  opacity: 0;
-  transition: opacity .15s;
-}
-.marker-label {
-  position: absolute;
-  left: 50%; top: calc(100% + 2px);
-  transform: translateX(-50%);
-  white-space: nowrap;
-  /* Blue fill + gold border in Tribal Garamond (on-map label styling). */
-  font-family: 'Tribal Garamond', 'Cinzel', serif;
-  font-size: 26px;
-  font-weight: 600;
-  letter-spacing: .08em;
-  color: #122a6b;
-  -webkit-text-stroke: 0.7px #c8922a;
-  text-stroke: 0.7px #c8922a;
-  paint-order: stroke fill;
-  text-shadow: 0 0 5px rgba(242,232,208,0.9);      /* soft parchment halo for legibility */
-  pointer-events: none;
-  user-select: none;
-  opacity: 0;
-  transition: opacity .15s;
-}
-
-/* Edit mode: show everything and restore interactivity */
-#map-area.edit-mode .marker                     { pointer-events: all; }
-#map-area.edit-mode .marker .marker-seal        { opacity: 1; }
-#map-area.edit-mode .marker:hover               { filter: drop-shadow(0 0 6px var(--seal-gold)); z-index: 20; }
-#map-area.edit-mode .marker.active              { filter: drop-shadow(0 0 10px var(--seal-gold)); z-index: 30; }
-#map-area.edit-mode .marker.edit-dragging       { cursor: move !important; z-index: 50; }
-
-.marker-label.show { opacity: 1; }
-
-/* ── TOOLTIP ─────────────────────────────────────────────── */
-#tooltip {
-  position: fixed;
-  z-index: 150;
-  background: var(--ink);
-  border: 1.5px solid var(--ink-faint);
-  padding: 10px 14px;
-  max-width: 240px;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity .15s;
-}
-#tooltip.visible { opacity: 1; }
-#tooltip-type {
-  font-family: 'Cinzel', serif;
-  font-size: 8px;
-  letter-spacing: .18em;
-  text-transform: uppercase;
-  color: var(--seal-gold);
-  margin-bottom: 3px;
-}
-#tooltip-name {
-  font-family: 'Cinzel', serif;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--parchment);
-  margin-bottom: 5px;
-}
-#tooltip-desc {
-  font-size: 11.5px;
-  font-style: italic;
-  color: var(--parchment-deep);
-  line-height: 1.45;
-}
-#tooltip-hint {
-  margin-top: 7px;
-  font-family: 'Cinzel', serif;
-  font-size: 8.5px;
-  letter-spacing: .1em;
-  color: var(--seal-gold);
-}
-
-/* ── ZOOM CONTROLS ───────────────────────────────────────── */
-#zoom-controls {
-  position: absolute;
-  bottom: 22px; right: 18px;
-  display: flex; flex-direction: column; gap: 4px;
-  z-index: 50;
-}
-.zoom-btn {
-  width: 32px; height: 32px;
-  background: var(--ink-mid);
-  border: 1.5px solid var(--ink-faint);
-  color: var(--parchment-deep);
-  font-size: 18px;
-  cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  font-family: 'Cinzel', serif;
-  transition: background .12s, color .12s;
-  user-select: none;
-}
-.zoom-btn:hover { background: var(--ink-faint); color: var(--parchment); }
-#zoom-label {
-  text-align: center;
-  font-family: 'Cinzel', serif;
-  font-size: 9px;
-  letter-spacing: .1em;
-  color: var(--parchment-deep);
-  user-select: none;
-}
-
-/* ── COMPASS ROSE ─────────────────────────────────────────── */
-#compass {
-  position: absolute;
-  bottom: 22px; left: 18px;
-  z-index: 50;
-  opacity: .75;
-  pointer-events: none;
-}
-
-/* ── PLAYER LINK BAR ─────────────────────────────────────── */
-.player-link-bar {
-  display: none;
-  align-items: center;
-  gap: 0.5rem;
-  background: rgba(20,60,20,0.5);
-  border: 1px solid rgba(60,160,60,0.4);
-  border-radius: 4px;
-  padding: 4px 10px;
-  max-width: 380px;
-}
-.player-link-bar.visible { display: flex; }
-.player-link-label {
-  font-family: 'Cinzel', serif;
-  font-size: 0.6rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: #80c880;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-.player-link-url {
-  font-size: 0.68rem;
-  color: #a8e0a8;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex: 1;
-  min-width: 0;
-}
-.player-link-copy {
-  background: rgba(60,160,60,0.2);
-  border: 1px solid rgba(60,160,60,0.4);
-  color: #80c880;
-  font-size: 0.65rem;
-  padding: 2px 8px;
-  border-radius: 3px;
-  cursor: pointer;
-  white-space: nowrap;
-  flex-shrink: 0;
-  font-family: 'Cinzel', serif;
-  transition: background 0.12s;
-}
-.player-link-copy:hover { background: rgba(60,160,60,0.4); color: #fff; }
-.player-link-copy.copied { background: rgba(60,160,60,0.6); color: #fff; }
-/* NPC Tool button — standalone, left of the Players field, red like the DM-view accents */
-.npc-tool-btn {
-  background: rgba(180,30,30,0.2);
-  border: 1px solid rgba(200,50,50,0.45);
-  color: #e07070;
-  font-size: 0.65rem;
-  padding: 2px 10px;
-  border-radius: 3px;
-  cursor: pointer;
-  white-space: nowrap;
-  flex-shrink: 0;
-  font-family: 'Cinzel', serif;
-  transition: background 0.12s;
-}
-.npc-tool-btn:hover { background: rgba(200,50,50,0.4); color: #fff; }
-
-/* ── PLAYER LINKS MODAL ─────────────────────────────────── */
-#plkModal { position: fixed; inset: 0; z-index: 9000; display: none; align-items: center; justify-content: center; }
-#plkModal.open { display: flex; }
-.plk-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.6); }
-.plk-dialog { position: relative; background: #161b22; color: #cdd9e5; border: 1px solid #30363d; border-radius: 8px; width: min(660px,94vw); max-height: 88vh; display: flex; flex-direction: column; box-shadow: 0 12px 48px rgba(0,0,0,0.6); font-family: system-ui,'Segoe UI',sans-serif; }
-.plk-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid #30363d; }
-.plk-title { font-size: 1rem; font-weight: 600; color: #e8c96a; }
-.plk-close { background: none; border: none; color: #8b949e; font-size: 1.1rem; cursor: pointer; }
-.plk-body { padding: 12px 16px; overflow-y: auto; }
-.plk-status { font-size: 0.76rem; color: #8b949e; margin-bottom: 10px; line-height: 1.6; }
-.plk-status .warn { color: #d29922; }
-.plk-status .ok { color: #3fb950; }
-.plk-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
-.plk-table th { text-align: left; font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.07em; color: #8b949e; padding: 4px 6px; border-bottom: 1px solid #30363d; }
-.plk-table td { padding: 4px 6px; border-bottom: 1px solid #21262d; vertical-align: middle; }
-.plk-table input, .plk-table select { width: 100%; background: #0d1117; border: 1px solid #30363d; color: #cdd9e5; border-radius: 3px; padding: 3px 5px; font-size: 0.78rem; }
-.plk-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #545d68; }
-.plk-dot.on { background: #3fb950; }
-.plk-mini { background: #21262d; border: 1px solid #30363d; color: #cdd9e5; border-radius: 3px; font-size: 0.68rem; padding: 3px 8px; cursor: pointer; }
-.plk-mini:hover { background: #2d333b; }
-.plk-mini.danger:hover { background: #8b2020; border-color: #c04040; color: #fff; }
-.plk-foot { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-top: 1px solid #30363d; flex-wrap: wrap; }
-.plk-btn { background: #2a1e0c; color: #e8c96a; border: 1px solid #6a4a10; border-radius: 4px; padding: 6px 14px; cursor: pointer; font-size: 0.82rem; }
-.plk-btn:hover { background: #3a2a10; color: #fff; }
-.plk-btn.prim { background: #b8860b; color: #000; border-color: #d4a017; font-weight: 600; }
-.plk-btn.prim:hover { background: #d4a017; }
-.plk-send-msg { font-size: 0.76rem; color: #8b949e; }
-
-/* ── SCROLLBAR (sidebar) ─────────────────────────────────── */
-* { scrollbar-width: thin; scrollbar-color: var(--parchment-deep) var(--parchment-dark); }
-
-/* ── COMPASS LOADING ANIMATION ───────────────────────────── */
-@keyframes compass-loading {
-  0%   { transform: rotate(0deg);    }
-  18%  { transform: rotate(320deg);  }   /* fast burst */
-  28%  { transform: rotate(340deg);  }   /* brief slow */
-  46%  { transform: rotate(660deg);  }   /* fast burst */
-  56%  { transform: rotate(680deg);  }   /* brief slow */
-  74%  { transform: rotate(1000deg); }   /* fast burst */
-  84%  { transform: rotate(1020deg); }   /* brief slow */
-  100% { transform: rotate(1360deg); }   /* fast to end */
-}
-#compass-needle {
-  transform-box:    fill-box;
-  transform-origin: 50% 50%;
-}
-#compass-needle.loading {
-  animation: compass-loading 2.4s linear infinite;
-}
-
-/* ── COORDS DISPLAY ─────────────────────────────────────── */
-#coords-display {
-  display: none;
-  position: absolute;
-  bottom: 22px; left: 96px;   /* right of the compass */
-  background: rgba(28,18,8,.88);
-  border: 1px solid var(--ink-faint);
-  padding: 5px 10px;
-  font-family: 'Cinzel', serif;
-  font-size: 10px;
-  letter-spacing: .1em;
-  color: var(--parchment-deep);
-  z-index: 50;
-  pointer-events: none;
-  white-space: nowrap;
-  min-width: 110px;
-  text-align: center;
-}
-#map-area.show-coords #coords-display { display: block; }
-
-/* ── PLACEMENT MODE ─────────────────────────────────────── */
-#map-area.placement-mode { cursor: crosshair !important; }
-#placement-banner {
-  display: none;
-  position: absolute;
-  top: 12px; left: 50%; transform: translateX(-50%);
-  background: var(--seal-gold);
-  color: var(--ink);
-  font-family: 'Cinzel', serif;
-  font-size: 11px;
-  letter-spacing: .12em;
-  text-transform: uppercase;
-  padding: 7px 20px;
-  z-index: 60;
-  pointer-events: none;
-  white-space: nowrap;
-  box-shadow: 0 2px 12px var(--shadow);
-}
-#map-area.placement-mode #placement-banner { display: block; }
-
-/* ── TEXT-ONLY MARKER ───────────────────────────────────── */
-.marker.marker-text { pointer-events: none; }
-#map-area.edit-mode .marker.marker-text { pointer-events: all; }
-.marker.marker-text .marker-label {
-  position: relative;
-  top: auto; left: auto;
-  transform: none;
-  opacity: 1 !important;
-  /* Blue fill + gold border in Tribal Garamond, on a parchment chip. */
-  font-family: 'Tribal Garamond', 'IM Fell English', serif;
-  font-size: 12px;
-  font-style: normal;
-  color: #122a6b;
-  -webkit-text-stroke: 0.4px #c8922a;
-  text-stroke: 0.4px #c8922a;
-  paint-order: stroke fill;
-  text-shadow: none;
-  background: rgba(242,232,204,0.88);
-  padding: 1px 6px;
-  border-radius: 2px;
-  white-space: nowrap;
-  pointer-events: none;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
-}
-#map-area.edit-mode .marker.marker-text .marker-label { pointer-events: auto; }
-
-/* ── ADD LOCATION MODAL ─────────────────────────────────── */
-#addtown-overlay {
-  display: none;
-  position: fixed; inset: 0;
-  background: rgba(28,18,8,.82);
-  z-index: 300;
-  align-items: center; justify-content: center;
-}
-#addtown-overlay.open { display: flex; }
-#addtown-box {
-  background: var(--parchment);
-  border: 2px solid var(--ink-mid);
-  padding: 28px 32px;
-  max-width: 420px; width: 90%;
-}
-#addtown-box h3 {
-  font-family: 'Cinzel', serif;
-  font-size: 13px;
-  letter-spacing: .14em;
-  text-transform: uppercase;
-  color: var(--ink);
-  margin-bottom: 16px;
-}
-#addtown-name {
-  width: 100%;
-  padding: 8px 12px;
-  border: 1.5px solid var(--parchment-deep);
-  background: var(--parchment);
-  font-family: 'Cinzel', serif;
-  font-size: 14px;
-  color: var(--ink);
-  outline: none;
-  margin-bottom: 8px;
-  box-sizing: border-box;
-}
-#addtown-name:focus { border-color: var(--ink-faint); }
-#addtown-hint {
-  font-family: 'IM Fell English', serif;
-  font-size: 11px;
-  font-style: italic;
-  color: var(--ink-faint);
-  margin-bottom: 16px;
-  line-height: 1.5;
-}
-#addtown-actions { display: flex; gap: 8px; }
-</style>
+<link rel="stylesheet" href="atlas_style.css">
 </head>
 <body>
 
 <input type="file" id="map-img-upload" accept="image/*" style="display:none">
 
 <!-- corner ornaments -->
-<div class="corner tr">✦</div>
-<div class="corner bl">✦</div>
-<div class="corner br">✦</div>
+<div class="corner tr">ג¦</div>
+<div class="corner bl">ג¦</div>
+<div class="corner br">ג¦</div>
 <div id="frame"></div>
 
 <div id="layout">
@@ -952,9 +33,9 @@ button.loc-link:disabled { color: var(--ink-faint); cursor: wait; }
         <button type="button" class="player-link-copy" id="btn-sync-players" style="display:none" title="Refresh every open player tool and re-sync all views">Sync players</button>
       </div>
 
-      <!-- MAP TOOLS DROPDOWN — collects every map-editing control -->
+      <!-- MAP TOOLS DROPDOWN ג€” collects every map-editing control -->
       <div class="maptools-wrap" id="maptools-wrap">
-        <button class="btn btn-gold" id="btn-maptools" type="button">Map Tools ▾</button>
+        <button class="btn btn-gold" id="btn-maptools" type="button">Map Tools ג–¾</button>
         <div id="maptools-menu">
           <button class="maptools-item active" id="btn-labels" type="button">Hide Locations</button>
 
@@ -976,7 +57,7 @@ button.loc-link:disabled { color: var(--ink-faint); cursor: wait; }
 
           <!-- Add: nested submenu (DM only) -->
           <div class="maptools-sub maptools-submenu-wrap" id="add-dropdown-wrap" style="display:none">
-            <button class="maptools-item maptools-item-caret" id="btn-addtown" type="button">Add<span class="maptools-caret">▸</span></button>
+            <button class="maptools-item maptools-item-caret" id="btn-addtown" type="button">Add<span class="maptools-caret">ג–¸</span></button>
             <div id="add-dropdown-menu" class="maptools-submenu">
               <button class="maptools-item" id="btn-add-location" type="button">Add Location</button>
               <button class="maptools-item" id="btn-add-marker" type="button">Add Marker</button>
@@ -994,7 +75,7 @@ button.loc-link:disabled { color: var(--ink-faint); cursor: wait; }
     <div id="sidebar">
       <div id="sidebar-head">
         <h2 class="display">Locations</h2>
-        <input id="search" type="text" placeholder="Search towns &amp; places…">
+        <input id="search" type="text" placeholder="Search towns &amp; placesג€¦">
         <div id="location-count"></div>
       </div>
       <div id="location-list"></div>
@@ -1011,8 +92,8 @@ button.loc-link:disabled { color: var(--ink-faint); cursor: wait; }
         <!-- animated hexagonal travel grid (above image, below markers) -->
         <svg id="hex-grid-overlay" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
           <defs>
-            <!-- Two pointy-top hexagons per tile (34.641 × 60) that tile into a
-                 seamless honeycomb. Circumradius 20 → neighbour distance √3·20. -->
+            <!-- Two pointy-top hexagons per tile (34.641 ֳ— 60) that tile into a
+                 seamless honeycomb. Circumradius 20 ג†’ neighbour distance גˆ3ֲ·20. -->
             <pattern id="hex-pattern" width="34.641" height="60" patternUnits="userSpaceOnUse" patternTransform="scale(3.2)">
               <path fill="none" stroke="#000000" stroke-width="1.4" stroke-linejoin="round"
                     d="M17.3205 0L34.641 10L34.641 30L17.3205 40L0 30L0 10Z
@@ -1029,8 +110,8 @@ button.loc-link:disabled { color: var(--ink-faint); cursor: wait; }
       <div id="zoom-controls">
         <button class="zoom-btn" id="btn-zoom-in" title="Zoom in">+</button>
         <div id="zoom-label">100%</div>
-        <button class="zoom-btn" id="btn-zoom-out" title="Zoom out">−</button>
-        <button class="zoom-btn" id="btn-zoom-reset" style="font-size:12px" title="Reset view">⌂</button>
+        <button class="zoom-btn" id="btn-zoom-out" title="Zoom out">גˆ’</button>
+        <button class="zoom-btn" id="btn-zoom-reset" style="font-size:12px" title="Reset view">ג‚</button>
       </div>
 
       <!-- Compass rose (SVG) -->
@@ -1038,7 +119,7 @@ button.loc-link:disabled { color: var(--ink-faint); cursor: wait; }
         <svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
           <!-- Static outer ring -->
           <circle cx="32" cy="32" r="30" fill="none" stroke="#6b4f2e" stroke-width="1.2" opacity=".7"/>
-          <!-- Rotating cross — gets .loading class while map image is loading -->
+          <!-- Rotating cross ג€” gets .loading class while map image is loading -->
           <g id="compass-needle">
             <polygon points="32,4 29,32 32,28 35,32" fill="#8b2020"/>
             <polygon points="32,60 29,32 32,36 35,32" fill="#6b4f2e"/>
@@ -1055,7 +136,7 @@ button.loc-link:disabled { color: var(--ink-faint); cursor: wait; }
       <!-- Placement mode instruction banner -->
       <div id="placement-banner"></div>
       <!-- Real-time position readout -->
-      <div id="coords-display">— · —</div>
+      <div id="coords-display">ג€” ֲ· ג€”</div>
     </div>
 
   </div><!-- /body-row -->
@@ -1073,7 +154,7 @@ button.loc-link:disabled { color: var(--ink-faint); cursor: wait; }
 <div id="addtown-overlay">
   <div id="addtown-box">
     <h3 class="display">Add Location</h3>
-    <input id="addtown-name" type="text" placeholder="Location name…">
+    <input id="addtown-name" type="text" placeholder="Location nameג€¦">
     <div id="addtown-hint">Enter the name of the new location. Click on the map to place it.</div>
     <div id="addtown-actions">
       <button class="btn btn-gold" id="btn-submit-addtown">Add Location</button>
@@ -1083,17 +164,17 @@ button.loc-link:disabled { color: var(--ink-faint); cursor: wait; }
 </div>
 
 <script>
-// ══════════════════════════════════════════════════════════════
-//  NOCROPI REGIONAL MAP  —  main application script
-// ══════════════════════════════════════════════════════════════
+// ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•
+//  NOCROPI REGIONAL MAP  ג€”  main application script
+// ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•
 
 // IS_DM is resolved from the server (same logic as map_tool.html).
-// Direct localhost access → DM; Cloudflare tunnel → player.
+// Direct localhost access ג†’ DM; Cloudflare tunnel ג†’ player.
 // ?player_test in the URL forces player mode for local testing.
 let IS_DM = false;
 const PLAYER_TEST = new URLSearchParams(location.search).has('player_test');
 
-// Defaults — overridden by DB content on load
+// Defaults ג€” overridden by DB content on load
 let REGION_NAME          = 'Nocropi';
 let MAP_IMAGE_FILENAME   = 'locations/nocropi.webp';
 let LOCATION_MAP_DEFAULT = {};
@@ -1103,7 +184,7 @@ let LOCATIONS            = [];
 let townsWithContent = new Set();
 let npcCountByTown = {};
 
-// ── STATE ─────────────────────────────────────────────────────
+// ג”€ג”€ STATE ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
 let mapW = 1200, mapH = 800;   // set properly when image loads
 let scale   = 1;
 let panX    = 0, panY    = 0;
@@ -1126,7 +207,7 @@ let pendingClick    = false;
 let clickStartX     = 0, clickStartY = 0;
 let showCoords      = false;
 
-// ── ELEMENTS ──────────────────────────────────────────────────
+// ג”€ג”€ ELEMENTS ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
 const mapArea       = document.getElementById('map-area');
 const viewport      = document.getElementById('map-viewport');
 const markersLayer  = document.getElementById('markers-layer');
@@ -1139,7 +220,7 @@ const tooltipHint   = document.getElementById('tooltip-hint');
 const coordsDisplay = document.getElementById('coords-display');
 const locationCount = document.getElementById('location-count');
 
-// ── BOOT ──────────────────────────────────────────────────────
+// ג”€ג”€ BOOT ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
 window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('compass-needle').classList.add('loading');
   // Start loading the map image immediately so it fetches in parallel with the API
@@ -1152,7 +233,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       fetch('/api/region/nocropi').then(r => r.json())
     ]);
     IS_DM = auth.isDM && !PLAYER_TEST;
-    if (window.DiceRoll) DiceRoll.setDM(IS_DM);   // only the DM may right-click a roll → hidden
+    if (window.DiceRoll) DiceRoll.setDM(IS_DM);   // only the DM may right-click a roll ג†’ hidden
     townsWithContent = new Set(regionData.townsWithContent || []);
     npcCountByTown = regionData.npcCountByTown || {};
     // Location visibility (and party/hexgrid state) always comes from the database.
@@ -1167,7 +248,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
   } catch(e) {
     console.error('Failed to connect to server:', e);
-    showFatalBanner('Cannot reach the map server — make sure server.js is running.');
+    showFatalBanner('Cannot reach the map server ג€” make sure server.js is running.');
     return;
   }
 
@@ -1182,7 +263,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('dmViewBadge').style.display       = '';
     positionDmBadge();
     window.addEventListener('resize', positionDmBadge);
-    // NPC tool + Edit DB buttons (DM only) — carry the DM key so the new tab is DM too.
+    // NPC tool + Edit DB buttons (DM only) ג€” carry the DM key so the new tab is DM too.
     const openDmTool = (path) => {
       const q = new URLSearchParams();
       const dmkey = new URLSearchParams(location.search).get('dmkey');
@@ -1213,7 +294,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     });
     fetchTunnelUrl();
     setInterval(fetchTunnelUrl, 10 * 60 * 1000);
-    // Player Links button (replaces the raw tunnel link) → roster + Discord delivery
+    // Player Links button (replaces the raw tunnel link) ג†’ roster + Discord delivery
     document.getElementById('playerLinkBar')?.classList.add('visible');
     document.getElementById('playerLinksBtn')?.addEventListener('click', openPlayerLinks);
     document.getElementById('plkClose')?.addEventListener('click', closePlayerLinks);
@@ -1254,7 +335,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   setTimeout(fitView, 80);
 });
 
-// ── FATAL BANNER ──────────────────────────────────────────────
+// ג”€ג”€ FATAL BANNER ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
 function showFatalBanner(message) {
   document.getElementById('compass-needle').classList.remove('loading');
   const banner = document.createElement('div');
@@ -1263,7 +344,7 @@ function showFatalBanner(message) {
   document.body.prepend(banner);
 }
 
-// ── MAP LOAD / ERROR ──────────────────────────────────────────
+// ג”€ג”€ MAP LOAD / ERROR ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
 function finalizeMapSetup() {
   document.getElementById('compass-needle').classList.remove('loading');
   viewport.style.width  = mapW + 'px';
@@ -1292,7 +373,7 @@ function onMapError(img) {
   finalizeMapSetup();
 }
 
-// ── FIT VIEW ──────────────────────────────────────────────────
+// ג”€ג”€ FIT VIEW ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
 function fitView() {
   const areaW = mapArea.clientWidth;
   const areaH = mapArea.clientHeight;
@@ -1306,7 +387,7 @@ function fitView() {
   applyTransform();
 }
 
-// ── TRANSFORM ─────────────────────────────────────────────────
+// ג”€ג”€ TRANSFORM ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
 function applyTransform() {
   viewport.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
   zoomLabel.textContent = Math.round(scale * 100) + '%';
@@ -1316,7 +397,7 @@ function clampScale(s) {
   return Math.max(minScale, Math.min(maxScale, s));
 }
 
-// ── ZOOM ──────────────────────────────────────────────────────
+// ג”€ג”€ ZOOM ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
 function zoomStep(delta) {
   const areaW = mapArea.clientWidth;
   const areaH = mapArea.clientHeight;
@@ -1337,7 +418,7 @@ function resetView() {
   fitView();
 }
 
-// ── MOUSE WHEEL ZOOM ──────────────────────────────────────────
+// ג”€ג”€ MOUSE WHEEL ZOOM ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
 mapArea.addEventListener('wheel', e => {
   e.preventDefault();
   const rect = mapArea.getBoundingClientRect();
@@ -1347,7 +428,7 @@ mapArea.addEventListener('wheel', e => {
   zoomAt(cx, cy, delta);
 }, { passive: false });
 
-// ── PAN (mouse) ───────────────────────────────────────────────
+// ג”€ג”€ PAN (mouse) ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
 mapArea.addEventListener('mousedown', e => {
   if (draggingMarker) return;
   if (editMode && e.target.closest('.marker')) return;
@@ -1400,7 +481,7 @@ window.addEventListener('mousemove', e => {
       coordsDisplay.textContent = 'X: ' + raw.x.toFixed(1) + '  Y: ' + raw.y.toFixed(1);
     }
   } else if (showCoords) {
-    coordsDisplay.textContent = '— · —';
+    coordsDisplay.textContent = 'ג€” ֲ· ג€”';
   }
 });
 
@@ -1439,7 +520,7 @@ window.addEventListener('blur', () => {
   if (partyDragging)  { partyDragging = false; partyMarkerEl?.classList.remove('dragging'); clearTimeout(_partyPosTimer); saveLocVisibility(); }
 });
 
-// ── TOUCH PAN / PINCH ─────────────────────────────────────────
+// ג”€ג”€ TOUCH PAN / PINCH ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
 let lastTouches = null;
 
 mapArea.addEventListener('touchstart', e => {
@@ -1479,13 +560,13 @@ function dist(a, b) {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
-// ── SIDEBAR BUILD ─────────────────────────────────────────────
-// ── LOCATION VISIBILITY (DM) ──────────────────────────────────
+// ג”€ג”€ SIDEBAR BUILD ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
+// ג”€ג”€ LOCATION VISIBILITY (DM) ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
 let locVisibility = {};
 
 let _visSaveTimer = null;
 function saveLocVisibility() {
-  // Persist to the database only — no browser cache.
+  // Persist to the database only ג€” no browser cache.
   if (!IS_DM) return;
   clearTimeout(_visSaveTimer);
   _visSaveTimer = setTimeout(() => {
@@ -1519,7 +600,7 @@ function updateLocVisUI() {
     el.classList.toggle('dm-hidden', !vis);
     const btn = el.querySelector('.loc-vis-btn');
     if (btn) {
-      btn.textContent = vis ? '● Visible' : '○ Hidden';
+      btn.textContent = vis ? 'ג— Visible' : 'ג—‹ Hidden';
       btn.classList.toggle('hidden-state', !vis);
     }
   });
@@ -1556,7 +637,7 @@ function buildSidebar() {
         ? ''
         : showLink
           ? `<a class="loc-link display" href="${!/^(javascript|data|vbscript):/i.test(pageUrl) ? escHtml(pageUrl + (PLAYER_TEST ? '&player_test' : '')) : '#'}" target="_blank" rel="noopener"
-                onclick="event.stopPropagation()">Open Town Map →</a>`
+                onclick="event.stopPropagation()">Open Town Map ג†’</a>`
           : showAddMap
             ? `<button class="loc-link display" data-addmap="${loc.id}">Add a location map</button>`
             : `<span class="loc-link no-page display">No town map yet</span>`}
@@ -1578,13 +659,13 @@ function buildSidebar() {
       const vis = isLocVisible(loc.id);
       const visBtn = document.createElement('button');
       visBtn.className = 'loc-vis-btn' + (vis ? '' : ' hidden-state');
-      visBtn.textContent = vis ? '● Visible' : '○ Hidden';
+      visBtn.textContent = vis ? 'ג— Visible' : 'ג—‹ Hidden';
       visBtn.onclick = e => { e.stopPropagation(); toggleLocVisibility(loc.id); };
       el.appendChild(visBtn);
 
       const delBtn = document.createElement('button');
       delBtn.className = 'loc-remove-btn';
-      delBtn.textContent = '×';
+      delBtn.textContent = 'ֳ—';
       delBtn.title = 'Remove location';
       delBtn.onclick = e => {
         e.stopPropagation();
@@ -1604,10 +685,10 @@ function updateCount(visible, total) {
   const locPart = IS_DM
     ? (visible === total ? plural(total, 'location') : `${visible} of ${total} shown`)
     : plural(visible, 'location');
-  locationCount.textContent = totalNpcs > 0 ? `${locPart} · ${totalNpcs} NPCs` : locPart;
+  locationCount.textContent = totalNpcs > 0 ? `${locPart} ֲ· ${totalNpcs} NPCs` : locPart;
 }
 
-// ── FILTER ────────────────────────────────────────────────────
+// ג”€ג”€ FILTER ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
 function filterList(q) {
   q = q.trim().toLowerCase();
   let visible = 0;
@@ -1625,7 +706,7 @@ function filterList(q) {
   updateCount(visible, LOCATIONS.length);
 }
 
-// ── PARTY MARKER ──────────────────────────────────────────────
+// ג”€ג”€ PARTY MARKER ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
 let partyMarkerEl = null;
 
 function getPartyPos() {
@@ -1642,7 +723,7 @@ function renderPartyMarker() {
   partyMarkerEl.style.top  = pos.y + '%';
 }
 
-// Keep the Map-Tools "Party Location" row in sync: "Set…" (click-to-place) when unset,
+// Keep the Map-Tools "Party Location" row in sync: "Setג€¦" (click-to-place) when unset,
 // jump-to when set. Hidden for players until a position exists (they can't place one).
 function refreshPartyLocBtn() {
   const btn = document.getElementById('btn-party-loc');
@@ -1699,7 +780,7 @@ function initPartyMarker() {
   renderPartyMarker();
 }
 
-// ── MARKERS RENDER ────────────────────────────────────────────
+// ג”€ג”€ MARKERS RENDER ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
 function renderMarkers() {
   markersLayer.innerHTML = '';
   LOCATIONS.forEach(loc => {
@@ -1778,7 +859,7 @@ function typeColor(type) {
   return { bg: '#3b2a14', ring: '#c8922a', text: '#f2e8d0' };
 }
 
-// ── ACTIVATE LOCATION ─────────────────────────────────────────
+// ג”€ג”€ ACTIVATE LOCATION ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
 function activateLocation(id, panToIt) {
   activeId = id;
 
@@ -1810,14 +891,14 @@ function activateLocation(id, panToIt) {
   }
 }
 
-// ── TOOLTIP ───────────────────────────────────────────────────
+// ג”€ג”€ TOOLTIP ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
 function showTooltip(loc, ev) {
   tooltipType.textContent = loc.type;
   tooltipName.textContent = loc.name;
   tooltipDesc.textContent = loc.desc;
   const _tSlug = townSlugOf(loc);
   const _hasMap = _tSlug ? townsWithContent.has(_tSlug) : false;
-  tooltipHint.textContent = (IS_DM ? !!loc.page : _hasMap) ? 'Click to open town map →' : '';
+  tooltipHint.textContent = (IS_DM ? !!loc.page : _hasMap) ? 'Click to open town map ג†’' : '';
   tooltip.classList.add('visible');
   positionTooltip(ev);
 }
@@ -1842,8 +923,8 @@ function positionTooltip(ev) {
   tooltip.style.top  = y + 'px';
 }
 
-// ── MARKER BOUNDS CLAMP ───────────────────────────────────────
-// Keeps the 28×28 seal fully inside the map image at all times.
+// ג”€ג”€ MARKER BOUNDS CLAMP ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
+// Keeps the 28ֳ—28 seal fully inside the map image at all times.
 function clientToMarkerPos(clientX, clientY) {
   const { x, y } = clientToMapPct(clientX, clientY);
   return clampMarkerPos(x, y);
@@ -1858,7 +939,7 @@ function clampMarkerPos(x, y) {
   };
 }
 
-// ── HANDLE MARKER DRAG ────────────────────────────────────────
+// ג”€ג”€ HANDLE MARKER DRAG ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
 function handleMarkerDrag(e) {
   if (!draggingMarker) return;
   const pos = clientToMarkerPos(e.clientX, e.clientY);
@@ -1867,7 +948,7 @@ function handleMarkerDrag(e) {
   draggingMarker.el.style.top  = pos.y + '%';
 }
 
-// ── TOGGLE LABELS ─────────────────────────────────────────────
+// ג”€ג”€ TOGGLE LABELS ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
 function toggleLabels() {
   labelsVisible = !labelsVisible;
   const btn = document.getElementById('btn-labels');
@@ -1876,9 +957,9 @@ function toggleLabels() {
   updateMarkerLabels();
 }
 
-// ── HEX GRID (DM-controlled, synced to players) ───────────────
+// ג”€ג”€ HEX GRID (DM-controlled, synced to players) ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
 // State piggybacks on locVisibility['__hexgrid__'] so it travels through
-// the same save → broadcast pipeline as the party marker. { on, scale }
+// the same save ג†’ broadcast pipeline as the party marker. { on, scale }
 // where `scale` is the grid cell size in pixels (map space).
 let hexGrid = { on: true, scale: 112 };
 let _hexSaveTimer = null;
@@ -1887,8 +968,8 @@ function applyHexGrid() {
   const overlay = document.getElementById('hex-grid-overlay');
   const pattern = document.getElementById('hex-pattern');
   if (overlay) overlay.classList.toggle('hidden', !hexGrid.on);
-  // Base pattern tile is 28px wide; scale so one tile ≈ hexGrid.scale px.
-  // Base hex tile is 34.641px wide; scale so one hex ≈ hexGrid.scale px across.
+  // Base pattern tile is 28px wide; scale so one tile ג‰ˆ hexGrid.scale px.
+  // Base hex tile is 34.641px wide; scale so one hex ג‰ˆ hexGrid.scale px across.
   if (pattern) pattern.setAttribute('patternTransform', 'scale(' + (hexGrid.scale / 34.641) + ')');
   const btn = document.getElementById('btn-hexgrid');
   if (btn) btn.classList.toggle('active', hexGrid.on);
@@ -1908,7 +989,7 @@ function loadHexGridFromVis() {
   applyHexGrid();
 }
 
-// DM only — persist + broadcast so players update.
+// DM only ג€” persist + broadcast so players update.
 function saveHexGrid() {
   locVisibility['__hexgrid__'] = { on: hexGrid.on, scale: hexGrid.scale };
   saveLocVisibility();
@@ -1930,15 +1011,15 @@ function setHexScale(px) {
   _hexSaveTimer = setTimeout(saveHexGrid, 300);   // debounce while scrubbing
 }
 
-// ── TOGGLE COORDS TRACKER ─────────────────────────────────────
+// ג”€ג”€ TOGGLE COORDS TRACKER ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
 function toggleCoords() {
   showCoords = !showCoords;
   document.getElementById('btn-coords').classList.toggle('active', showCoords);
   mapArea.classList.toggle('show-coords', showCoords);
-  if (!showCoords) coordsDisplay.textContent = '— · —';
+  if (!showCoords) coordsDisplay.textContent = 'ג€” ֲ· ג€”';
 }
 
-// ── TOGGLE EDIT ───────────────────────────────────────────────
+// ג”€ג”€ TOGGLE EDIT ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
 let _posTimer = null;
 function debouncedSavePositions() {
   clearTimeout(_posTimer);
@@ -1966,7 +1047,7 @@ function toggleEdit() {
   // In edit mode disable link-clicks on markers (handled in click handler above)
 }
 
-// ── KEYBOARD SHORTCUTS ────────────────────────────────────────
+// ג”€ג”€ KEYBOARD SHORTCUTS ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
 document.addEventListener('keydown', e => {
   if (document.activeElement.tagName === 'INPUT'  ||
       document.activeElement.tagName === 'TEXTAREA') return;
@@ -1979,7 +1060,7 @@ document.addEventListener('keydown', e => {
   if ((e.key === 'e' || e.key === 'E') && IS_DM) toggleEdit();
 });
 
-// ── UTILITY ───────────────────────────────────────────────────
+// ג”€ג”€ UTILITY ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
 function plural(n, word) { return `${n} ${word}${n !== 1 ? 's' : ''}`; }
 
 function saveAfterEdit() {
@@ -2005,7 +1086,7 @@ function escHtml(s) {
     .replace(/'/g,'&#39;');
 }
 
-// ── CUSTOM LOCATIONS (localStorage) ───────────────────────────
+// ג”€ג”€ CUSTOM LOCATIONS (localStorage) ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
 const CUSTOM_LOC_KEY = 'nocropi_custom_locations';
 
 function loadCustomLocations() {
@@ -2044,7 +1125,7 @@ function removeMarker(id) {
   rebuildView();
 }
 
-// ── MAP TOOLS DROPDOWN ─────────────────────────────────────────
+// ג”€ג”€ MAP TOOLS DROPDOWN ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
 // The menu stays open while clicking controls inside it; only a click OUTSIDE
 // the whole Map Tools wrap closes it (and the nested Add submenu).
 function toggleMapTools() {
@@ -2058,7 +1139,7 @@ function closeMapTools() {
   closeAddDropdown();
 }
 
-// ── ADD SUBMENU (nested inside Map Tools) ──────────────────────
+// ג”€ג”€ ADD SUBMENU (nested inside Map Tools) ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
 function toggleAddDropdown() {
   document.getElementById('add-dropdown-menu').classList.toggle('open');
 }
@@ -2071,8 +1152,8 @@ document.addEventListener('click', e => {
   if (!e.target.closest('#maptools-wrap')) closeMapTools();
 });
 
-// ── PARTY LOCATION (set / jump-to) ─────────────────────────────
-// Unset → click-to-place on the map (like Add Location). Set → pan the map to it.
+// ג”€ג”€ PARTY LOCATION (set / jump-to) ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
+// Unset ג†’ click-to-place on the map (like Add Location). Set ג†’ pan the map to it.
 function partyLocationAction() {
   closeMapTools();
   const pos = getPartyPos();
@@ -2092,7 +1173,7 @@ function jumpToMapPct(xPct, yPct) {
   applyTransform();
 }
 
-// ── ADD LOCATION MODAL ─────────────────────────────────────────
+// ג”€ג”€ ADD LOCATION MODAL ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
 function capitaliseFirst(input) {
   const v = input.value;
   if (v.length > 0) input.value = v[0].toUpperCase() + v.slice(1);
@@ -2116,14 +1197,14 @@ function submitAddTown() {
   enterPlacementMode(name, 'Location');
 }
 
-// ── ADD MARKER ─────────────────────────────────────────────────
+// ג”€ג”€ ADD MARKER ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
 function openAddMarker() {
   const text = prompt('Marker text:');
   if (!text || !text.trim()) return;
   enterPlacementMode(text.trim(), 'Marker');
 }
 
-// ── PLACEMENT MODE ─────────────────────────────────────────────
+// ג”€ג”€ PLACEMENT MODE ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
 function clientToMapPct(clientX, clientY) {
   const rect = mapArea.getBoundingClientRect();
   const mx   = (clientX - rect.left - panX) / scale;
@@ -2163,7 +1244,7 @@ function enterPlacementMode(name, type) {
   markersLayer.appendChild(ghostMarkerEl);
 
   document.getElementById('placement-banner').textContent =
-    'Click on the map to place "' + name + '"  ·  Esc to cancel';
+    'Click on the map to place "' + name + '"  ֲ·  Esc to cancel';
 }
 
 function exitPlacementMode() {
@@ -2180,7 +1261,7 @@ function finalizePlacement(x, y) {
   const name   = pendingTownName;
   const type   = pendingType;
 
-  // Party marker: not a location — store the position + save/broadcast, then jump to it.
+  // Party marker: not a location ג€” store the position + save/broadcast, then jump to it.
   if (type === 'Party') {
     locVisibility['__party__'] = { x: +x.toFixed(3), y: +y.toFixed(3) };
     saveLocVisibility();
@@ -2225,7 +1306,7 @@ document.getElementById('hexgrid-scale').addEventListener('input', e => setHexSc
 document.getElementById('btn-add-location').addEventListener('click', () => { closeMapTools(); openAddLocation(); });
 document.getElementById('btn-add-marker').addEventListener('click',   () => { closeMapTools(); openAddMarker(); });
 
-// ── PLAYER LINK BAR ───────────────────────────────────────────
+// ג”€ג”€ PLAYER LINK BAR ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
 function setTunnelUrl(url) {
   if (!IS_DM || !url) return;
   const bar  = document.getElementById('playerLinkBar');
@@ -2244,7 +1325,7 @@ async function fetchTunnelUrl() {
   } catch(_) {}
 }
 
-// ── PLAYER LINKS ROSTER + DISCORD DELIVERY ────────────────────
+// ג”€ג”€ PLAYER LINKS ROSTER + DISCORD DELIVERY ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
 let _plkPlayers = [];
 let _plkSheets  = [];
 let _plkMeta    = { hasTunnel: false, discordConfigured: false };
@@ -2269,20 +1350,20 @@ async function loadPlayerRoster() {
 function renderPlayerRoster() {
   const status = document.getElementById('plkStatus');
   const statusParts = [
-    _plkMeta.hasTunnel ? '<span class="ok">✓ Tunnel active — links are publicly reachable.</span>'
-                       : '<span class="warn">⚠ No tunnel yet — links use localhost and won\'t work for remote players.</span>',
-    _plkMeta.discordConfigured ? '<span class="ok">✓ Discord bot secret configured.</span>'
-                               : '<span class="warn">⚠ Discord not configured — set DISCORD_BOT_SECRET in specificUser.js to enable sending.</span>'
+    _plkMeta.hasTunnel ? '<span class="ok">ג“ Tunnel active ג€” links are publicly reachable.</span>'
+                       : '<span class="warn">ג  No tunnel yet ג€” links use localhost and won\'t work for remote players.</span>',
+    _plkMeta.discordConfigured ? '<span class="ok">ג“ Discord bot secret configured.</span>'
+                               : '<span class="warn">ג  Discord not configured ג€” set DISCORD_BOT_SECRET in specificUser.js to enable sending.</span>'
   ];
   if (_plkMeta.dmLink) {
     // The tunnel domain changes on every tunnel restart and the DM cookie is
-    // per-domain — open this once on the new domain to stay DM there.
-    statusParts.push('<span class="warn">🔑 DM link for the current tunnel (open once after a tunnel restart): '
+    // per-domain ג€” open this once on the new domain to stay DM there.
+    statusParts.push('<span class="warn">נ”‘ DM link for the current tunnel (open once after a tunnel restart): '
       + `<a href="${_plkEscAttr(_plkMeta.dmLink)}" target="_blank" rel="noopener">${_plkEscAttr(_plkMeta.dmLink)}</a></span>`);
   }
   status.innerHTML = statusParts.join('<br>');
 
-  const opts = ['<option value="">— none —</option>']
+  const opts = ['<option value="">ג€” none ג€”</option>']
     .concat(_plkSheets.map(s => `<option value="${_plkEscAttr(s.npcId)}">${_plkEscAttr(s.name || s.npcId)}</option>`))
     .join('');
 
@@ -2297,13 +1378,13 @@ function renderPlayerRoster() {
       <td><input class="plk-dc" value="${_plkEscAttr(p.discordTarget)}" placeholder="Discord user ID"></td>
       <td><select class="plk-char">${opts}</select></td>
       <td style="white-space:nowrap"><button type="button" class="plk-mini plk-copy-char" title="Copy the character (NPC tool) link">character</button> <button type="button" class="plk-mini plk-copy-map" title="Copy the maps (atlas) link">map</button></td>
-      <td style="white-space:nowrap"><button type="button" class="plk-mini plk-regen" title="New link (revoke old)">↻</button> <button type="button" class="plk-mini danger plk-del" title="Remove">✕</button></td>`;
+      <td style="white-space:nowrap"><button type="button" class="plk-mini plk-regen" title="New link (revoke old)">ג†»</button> <button type="button" class="plk-mini danger plk-del" title="Remove">ג•</button></td>`;
     tr.querySelector('.plk-char').value = p.characterId || '';
     tr.querySelector('.plk-name').addEventListener('change', e => updatePlayer(p.pid, { name: e.target.value }));
     tr.querySelector('.plk-chan').addEventListener('change', e => updatePlayer(p.pid, { discordChannel: e.target.value }));
     tr.querySelector('.plk-dc').addEventListener('change', e => updatePlayer(p.pid, { discordTarget: e.target.value }));
     tr.querySelector('.plk-char').addEventListener('change', e => updatePlayer(p.pid, { characterId: e.target.value }));
-    const _flash = (b) => { const o = b.textContent; b.textContent = '✓ copied'; setTimeout(() => b.textContent = o, 1200); };
+    const _flash = (b) => { const o = b.textContent; b.textContent = 'ג“ copied'; setTimeout(() => b.textContent = o, 1200); };
     tr.querySelector('.plk-copy-char').addEventListener('click', e => {
       navigator.clipboard?.writeText(p.link || ''); _flash(e.currentTarget);
     });
@@ -2331,19 +1412,19 @@ async function addPlayer() {
 }
 async function sendPlayerLinks() {
   const msg = document.getElementById('plkSendMsg');
-  msg.textContent = 'Sending…';
+  msg.textContent = 'Sendingג€¦';
   try {
     const r = await fetch('/api/players/send-links', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
     const d = await r.json();
     if (!r.ok) { msg.textContent = d.error || 'Failed.'; return; }
     let t = `Queued ${d.queued} link(s) for the bot to deliver.`;
     if (d.skipped && d.skipped.length) t += ` Skipped (no Channel ID): ${d.skipped.join(', ')}.`;
-    if (!d.hasTunnel) t += ' ⚠ No tunnel — links point to localhost.';
+    if (!d.hasTunnel) t += ' ג  No tunnel ג€” links point to localhost.';
     msg.textContent = t;
   } catch (_) { msg.textContent = 'Failed to reach server.'; }
 }
 
-// ── REGION CONTENT SYNC ───────────────────────────────────────
+// ג”€ג”€ REGION CONTENT SYNC ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
 function applyRegionContentFromDB(c) {
   if (c.name)     REGION_NAME        = c.name;
   if (c.mapImage) MAP_IMAGE_FILENAME = c.mapImage;
@@ -2369,11 +1450,11 @@ function positionDmBadge() {
   const colRect = col.getBoundingClientRect();
   const subRect = sub.getBoundingClientRect();
   badge.style.left = (subRect.left - colRect.left + subRect.width / 2) + 'px';
-  document.title = `${REGION_NAME} — Regional Atlas`;
+  document.title = `${REGION_NAME} ג€” Regional Atlas`;
 }
 
 
-// ── LIVE SYNC ─────────────────────────────────────────────────
+// ג”€ג”€ LIVE SYNC ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
 function applyVisUpdate(newVis) {
   // Ignore no-op updates (e.g. the SSE echo of our own save).
   if (JSON.stringify(newVis) === JSON.stringify(locVisibility)) return;
@@ -2392,7 +1473,7 @@ function connectAtlasSSE() {
     es.onmessage = e => {
       try {
         const d = JSON.parse(e.data);
-        // Dice rolls ride this stream → hand to the roll log and STOP (never fall through to
+        // Dice rolls ride this stream ג†’ hand to the roll log and STOP (never fall through to
         // reload / visibility handling, which would otherwise refresh the whole atlas).
         if (d.type === 'dr-roll') { if (window.DiceRoll) DiceRoll.ingestRemote(d.entry); return; }
         if (d.type === 'dr-reload') { location.reload(); return; }  // live-reload rides this stream
@@ -2406,7 +1487,7 @@ function connectAtlasSSE() {
   attach();
 }
 
-// Polling fallback — guards against Cloudflare SSE buffering / dropped connections.
+// Polling fallback ג€” guards against Cloudflare SSE buffering / dropped connections.
 function startAtlasPolling() {
   if (IS_DM) return;
   const tick = async () => {
@@ -2431,7 +1512,7 @@ function startAtlasPolling() {
 // Cross-tab / cross-device sync now happens through the database via SSE
 // (connectAtlasSSE), so no localStorage listener is needed.
 
-// ── LOCATION MAP UPLOAD ───────────────────────────────────────
+// ג”€ג”€ LOCATION MAP UPLOAD ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
 function startMapUpload(locId) {
   pendingUploadLocId = locId;
   const inp = document.getElementById('map-img-upload');
@@ -2457,7 +1538,7 @@ document.getElementById('map-img-upload').addEventListener('change', async funct
 
   // Show uploading feedback
   const btn = document.querySelector(`[data-addmap="${locId}"]`);
-  if (btn) { btn.textContent = 'Uploading…'; btn.disabled = true; }
+  if (btn) { btn.textContent = 'Uploadingג€¦'; btn.disabled = true; }
 
   const dataUrl = await new Promise(resolve => {
     const reader = new FileReader();
@@ -2480,7 +1561,7 @@ document.getElementById('map-img-upload').addEventListener('change', async funct
       savePositionsToServer();
     }
 
-    // Mark town as having content so the sidebar shows "Open Town Map →"
+    // Mark town as having content so the sidebar shows "Open Town Map ג†’"
     townsWithContent.add(townSlug);
     buildSidebar();
 
@@ -2507,7 +1588,7 @@ if (window.caches) { caches.keys().then(ks => ks.forEach(k => caches.delete(k)))
 <div id="plkModal">
   <div class="plk-backdrop" id="plkBackdrop"></div>
   <div class="plk-dialog">
-    <div class="plk-head"><span class="plk-title">Player Links</span><button type="button" class="plk-close" id="plkClose">✕</button></div>
+    <div class="plk-head"><span class="plk-title">Player Links</span><button type="button" class="plk-close" id="plkClose">ג•</button></div>
     <div class="plk-body">
       <div class="plk-status" id="plkStatus"></div>
       <table class="plk-table">
