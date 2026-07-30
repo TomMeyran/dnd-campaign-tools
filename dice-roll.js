@@ -286,20 +286,29 @@
   // window — no page refresh. 2s keeps a dropped-SSE roll feeling near-instant; the extra no-op
   // requests when SSE is healthy are negligible at this scale (~a few small GETs/sec, tab-paused
   // when hidden). Rolls poll faster than combat (4s) because they're the most time-sensitive.
-  var POLL_MS = 2000;
+  // ADAPTIVE: 2s only matters when SSE isn't delivering. While the stream is
+  // provably alive (window.SSEHealth — fed by the host page's heartbeat), rolls
+  // already arrive instantly via ingestRemote, so the poll drops to a slow
+  // backstop. The moment the stream goes quiet it snaps back to 2s.
+  var POLL_MS      = 2000;    // SSE looks dead → near-instant recovery
+  var POLL_SLOW_MS = 15000;   // SSE delivering → just a backstop
   var pollTimer = null;
+  function pollDelay() {
+    var h = window.SSEHealth;
+    return (h && typeof h.isHealthy === 'function' && h.isHealthy()) ? POLL_SLOW_MS : POLL_MS;
+  }
   function pollTick() {
-    loadHistory().then(function () { pollTimer = setTimeout(pollTick, POLL_MS); },
-                       function () { pollTimer = setTimeout(pollTick, POLL_MS); });
+    loadHistory().then(function () { pollTimer = setTimeout(pollTick, pollDelay()); },
+                       function () { pollTimer = setTimeout(pollTick, pollDelay()); });
   }
   function startPolling() {
     if (pollTimer) return;
     // Pause polling while the tab is hidden (no one's watching); resume on focus and catch up.
     document.addEventListener('visibilitychange', function () {
       if (document.hidden) { clearTimeout(pollTimer); pollTimer = null; }
-      else if (!pollTimer) { loadHistory(); pollTimer = setTimeout(pollTick, POLL_MS); }
+      else if (!pollTimer) { loadHistory(); pollTimer = setTimeout(pollTick, pollDelay()); }
     });
-    pollTimer = setTimeout(pollTick, POLL_MS);
+    pollTimer = setTimeout(pollTick, pollDelay());
   }
 
   function init() {

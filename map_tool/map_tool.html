@@ -1566,12 +1566,51 @@ async function pushState() {
 }
 
 
+// ─── SSE HEALTH WATCHDOG ─────────────────────────────────────────────────────
+// The tunnel can leave a stream OPEN while silently forwarding nothing: no error
+// fires, so the browser never auto-reconnects and the map quietly goes stale.
+// Silence is the only reliable signal — the server pings every 20s, so hearing
+// nothing for much longer means the stream is dead. isHealthy() also lets the
+// polling fallbacks back off while SSE is provably working.
+window.SSEHealth = window.SSEHealth || (function () {
+  const SILENCE_MS = 50000;   // > 2 missed 20s heartbeats
+  let lastBeat = Date.now();
+  return {
+    beat() { lastBeat = Date.now(); },
+    sinceBeat() { return Date.now() - lastBeat; },
+    isHealthy() { return (Date.now() - lastBeat) < SILENCE_MS; },
+    SILENCE_MS
+  };
+})();
+
 function connectSSE() {
+  let _retry = 0;
+  let _watchdog = null;
+
   function attach() {
     const es = new EventSource(`/api/events/${TOWN_SLUG_API}`);
+
+    // Exponential backoff + jitter: a fixed retry means every open tab hammers a
+    // downed tunnel forever, and tabs sync into simultaneous bursts.
+    const reconnect = () => {
+      if (_watchdog) { clearInterval(_watchdog); _watchdog = null; }
+      try { es.close(); } catch (_) {}
+      const wait = Math.min(30000, 1000 * Math.pow(2, _retry++)) + Math.random() * 1000;
+      setTimeout(attach, wait);
+    };
+
+    es.onopen = () => { _retry = 0; SSEHealth.beat(); };
+
+    // Force a reconnect when the stream goes silent past the heartbeat window.
+    _watchdog = setInterval(() => {
+      if (SSEHealth.sinceBeat() > SSEHealth.SILENCE_MS) reconnect();
+    }, 10000);
+
     es.onmessage = e => {
+      SSEHealth.beat();   // any traffic (incl. pings) proves liveness
       try {
         const data = JSON.parse(e.data);
+        if (data.type === 'ping') return;   // heartbeat only
         // Roll log + live-reload ride this one stream (no extra SSE connections).
         // Return unconditionally so a roll NEVER falls through to the rebuild logic below
         // (which would refresh the whole map). If DiceRoll isn't ready yet, just drop it.
@@ -1643,7 +1682,7 @@ function connectSSE() {
     };
     // On connection error, close and reconnect after 3 s.
     // The server sends the full current state on every (re)connect, so no updates are lost.
-    es.onerror = () => { es.close(); setTimeout(attach, 3000); };
+    es.onerror = () => reconnect();
   }
   attach();
 }

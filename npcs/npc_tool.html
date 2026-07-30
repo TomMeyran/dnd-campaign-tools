@@ -523,6 +523,49 @@ textarea.cs-input { resize: vertical; min-height: 70px; field-sizing: content; }
 .sheet-incapacitated .attacks-table, .sheet-incapacitated #spellChipsCantrip, .sheet-incapacitated .spell-levels-wrap { opacity:0.55; }
 .incapacitated-banner { display:none;margin-top:5px;font-size:0.7rem;font-style:italic;color:var(--red); }
 .sheet-incapacitated .incapacitated-banner { display:block; }
+/* ── EXHAUSTION TRACK (0–6) ───────────────────────────────────────────────
+   Six clickable segments. Clicking level N lights 1..N (setExhaustion fills
+   downward); clicking the current top level steps back down to N-1. Lit
+   colours walk gold → dark red across the track, so the tier reads at a
+   glance. Each segment is a rectangle whose left/right edges are pulled into
+   outward points via clip-path — the 6px inset matches the -6px margin-left
+   below so neighbours interlock instead of leaving a gap. */
+.exh-block { margin-top:6px;padding-top:6px;border-top:1px solid rgba(120,60,140,0.18); }
+.exh-head { display:flex;align-items:center;gap:8px;margin-bottom:4px; }
+.exh-head .cs-label { margin:0; }
+.exh-level-read { font-family:'Cinzel',serif;font-size:0.64rem;letter-spacing:0.04em;color:var(--ink3); }
+.exh-level-read.on { color:#8a2a2a;font-weight:700; }
+.exh-clear { background:none;border:1px solid transparent;border-radius:3px;color:var(--ink3);font-family:'Cinzel',serif;font-size:0.58rem;letter-spacing:0.04em;padding:1px 6px;cursor:pointer;opacity:0.7;transition:all 0.12s;margin-left:auto; }
+.exh-clear:hover { opacity:1;border-color:rgba(180,100,30,0.4);color:var(--ink2); }
+.exh-bar { display:flex;align-items:stretch;gap:0;padding-left:6px;user-select:none; }
+.exh-seg {
+  position:relative;flex:1;height:20px;min-width:0;padding:0;border:none;background:none;cursor:pointer;
+  font-family:'Cinzel',serif;font-size:0.62rem;font-weight:700;line-height:20px;text-align:center;
+  color:rgba(60,40,15,0.45);
+  /* rectangle + outward triangular points on both ends */
+  clip-path:polygon(0 0, calc(100% - 6px) 0, 100% 50%, calc(100% - 6px) 100%, 0 100%, 6px 50%);
+  background:linear-gradient(180deg, rgba(255,250,235,0.9), rgba(226,214,188,0.9));
+  box-shadow:inset 0 0 0 1px rgba(120,90,40,0.28);
+  margin-left:-6px;transition:filter 0.12s, transform 0.08s;
+}
+.exh-seg:first-child { margin-left:0; }
+.exh-seg:hover { filter:brightness(1.09); z-index:2; }
+.exh-seg:active { transform:translateY(1px); }
+.exh-seg:focus-visible { outline:2px solid var(--orange);outline-offset:2px; }
+/* Lit tiers: gold (1) → dark red (6). */
+.exh-seg.on { color:#2a1206;text-shadow:0 1px 0 rgba(255,255,255,0.25);box-shadow:inset 0 0 0 1px rgba(70,20,10,0.45); }
+.exh-seg.on[data-lvl="1"] { background:linear-gradient(180deg,#f0d275,#c9a63c); }
+.exh-seg.on[data-lvl="2"] { background:linear-gradient(180deg,#e8b455,#c2882c); }
+.exh-seg.on[data-lvl="3"] { background:linear-gradient(180deg,#dc9040,#b06520); }
+.exh-seg.on[data-lvl="4"] { background:linear-gradient(180deg,#c96a34,#98431c); color:#fff2e2;text-shadow:0 1px 1px rgba(0,0,0,0.4); }
+.exh-seg.on[data-lvl="5"] { background:linear-gradient(180deg,#a8412a,#742316); color:#ffe8e0;text-shadow:0 1px 1px rgba(0,0,0,0.45); }
+.exh-seg.on[data-lvl="6"] { background:linear-gradient(180deg,#7d1f1a,#4a0d0a); color:#ffdcd4;text-shadow:0 1px 1px rgba(0,0,0,0.5); }
+/* Level 6 = death in 2014 rules: pulse it so it can't be missed. */
+.exh-seg.on[data-lvl="6"] { animation:exhDeathPulse 1.6s ease-in-out infinite; }
+@keyframes exhDeathPulse { 0%,100% { filter:brightness(1); } 50% { filter:brightness(1.35); } }
+.exh-effect-banner { display:none;margin-top:5px;font-size:0.7rem;font-style:italic;color:#8a2a2a;line-height:1.35; }
+.exh-effect-banner.show { display:block; }
+.exh-effect-banner.death { font-style:normal;font-weight:700;color:#fff;background:#6a1410;border-radius:3px;padding:3px 7px; }
 .eq-add-row-btn { background:transparent;border:1px dashed rgba(180,100,30,0.3);color:var(--ink3);font-family:'Crimson Pro',serif;font-size:0.75rem;padding:4px 0;border-radius:2px;cursor:pointer;margin-top:0.4rem;width:100%;text-align:center;transition:all 0.12s; }
 .eq-add-row-btn:hover { border-color:var(--orange);color:var(--ink); }
 .eq-loc-sel { max-width:100px;font-size:0.72rem!important; }
@@ -894,6 +937,15 @@ input[type=checkbox] { accent-color: var(--orange); cursor: pointer; }
             </div>
             <div class="conditions-chips" id="conditionsChips"></div>
             <div class="incapacitated-banner">⚠ Incapacitated — can't take actions or reactions.</div>
+            <div class="exh-block">
+              <div class="exh-head">
+                <span class="cs-label">Exhaustion</span>
+                <span class="exh-level-read" id="exhLevelRead">0 / 6</span>
+                <button type="button" class="exh-clear" id="exhClearBtn" title="Clear all exhaustion">Clear</button>
+              </div>
+              <div class="exh-bar" id="exhBar"></div>
+              <div class="exh-effect-banner" id="exhEffectBanner"></div>
+            </div>
           </div>
           <div class="cs-row" style="margin-top:0.75rem">
             <div class="cs-field"><label class="cs-label">Total Hit Dice</label><input class="cs-input" type="text" data-cs="hitDiceTotal" placeholder="5d4" style="width:70px"></div>
@@ -2077,6 +2129,7 @@ function collectSheet() {
 
   // Active 5e conditions
   cd.conditions = activeConditions.slice();
+  cd.exhaustion = exhaustionLevel;
 
   // Monster sheet
   const md = currentSheet.monsterData ??= {};
@@ -3195,6 +3248,7 @@ function wireRollTriggers() {
   wireHitDie();
   wireDeathSaves();
   wireConditions();
+  wireExhaustion();
   ensureAttacksPanel();
   ensureInitPanel();
   wireInCombatToggles();
@@ -4313,6 +4367,8 @@ function conditionAttackMode() {
     if (m.atkDis) dis = true;
     if (m.atkAdv) adv = true;
   });
+  // Exhaustion 3+ imposes disadvantage on attack rolls (levels 1–2 only hit checks).
+  if (exhaustionLevel >= 3) dis = true;
   if (dis) return 'disadv';
   if (adv) return 'adv';
   return 'normal';
@@ -4321,6 +4377,7 @@ function conditionAttackMode() {
 function loadConditions(cd) {
   activeConditions = Array.isArray(cd && cd.conditions) ? cd.conditions.filter(id => CONDITION_BY_ID[id]) : [];
   renderConditions();
+  loadExhaustion(cd);   // exhaustion level rides along with the conditions block
 }
 
 function wireConditions() {
@@ -4331,12 +4388,109 @@ function wireConditions() {
   }
 }
 
+// ─── EXHAUSTION TRACK (0–6, 2014 rules) ──────────────────────────────────────
+// Cumulative tiers: each level keeps every effect below it. Level 6 is death,
+// which we announce loudly but never apply automatically — killing a creature
+// stays the DM's call.
+const EXHAUSTION_TIERS = [
+  null,
+  'Disadvantage on ability checks',
+  'Speed halved',
+  'Disadvantage on attack rolls and saving throws',
+  'Hit point maximum halved',
+  'Speed reduced to 0',
+  'Death'
+];
+let exhaustionLevel = 0;
+
+// The RAW effects active at a given level, most severe first.
+function exhaustionEffects(lvl) {
+  const out = [];
+  for (let i = Math.min(lvl, 6); i >= 1; i--) out.push(`${i}. ${EXHAUSTION_TIERS[i]}`);
+  return out;
+}
+
+function renderExhaustion() {
+  const bar = document.getElementById('exhBar');
+  const read = document.getElementById('exhLevelRead');
+  const banner = document.getElementById('exhEffectBanner');
+  if (!bar) return;
+  // Build the six segments once, then just toggle .on so clicks stay cheap.
+  if (!bar._built) {
+    bar._built = true;
+    for (let i = 1; i <= 6; i++) {
+      const seg = document.createElement('button');
+      seg.type = 'button';
+      seg.className = 'exh-seg';
+      seg.dataset.lvl = String(i);
+      seg.textContent = String(i);
+      seg.addEventListener('click', () => {
+        // Clicking the current top level steps down; anything else sets exactly N.
+        setExhaustion(exhaustionLevel === i ? i - 1 : i);
+      });
+      bar.appendChild(seg);
+    }
+  }
+  bar.querySelectorAll('.exh-seg').forEach(seg => {
+    const lvl = +seg.dataset.lvl;
+    const on = lvl <= exhaustionLevel;
+    seg.classList.toggle('on', on);
+    seg.title = `Level ${lvl} — ${EXHAUSTION_TIERS[lvl]}` +
+      (on && lvl === exhaustionLevel ? '  (click to step back down)' : '  (click to set)');
+  });
+  if (read) {
+    read.textContent = `${exhaustionLevel} / 6`;
+    read.classList.toggle('on', exhaustionLevel > 0);
+  }
+  if (banner) {
+    const dead = exhaustionLevel >= 6;
+    banner.classList.toggle('show', exhaustionLevel > 0);
+    banner.classList.toggle('death', dead);
+    banner.textContent = dead
+      ? '☠ Exhaustion 6 — the creature dies (not applied automatically).'
+      : (exhaustionLevel > 0 ? '⚠ ' + exhaustionEffects(exhaustionLevel).join(' · ') : '');
+  }
+  applyConditionMechanics();
+}
+
+// Set the level (clamped 0–6). Lower segments light up implicitly via renderExhaustion.
+function setExhaustion(lvl) {
+  const next = Math.max(0, Math.min(6, Math.round(+lvl || 0)));
+  if (next === exhaustionLevel) return;
+  exhaustionLevel = next;
+  // Keep the legacy on/off 'exhaustion' chip in sync so existing sheets, the
+  // combat tracker dots and conditionAttackMode() all agree with the bar.
+  const hasChip = activeConditions.includes('exhaustion');
+  if (exhaustionLevel > 0 && !hasChip)      activeConditions.push('exhaustion');
+  else if (exhaustionLevel === 0 && hasChip) activeConditions = activeConditions.filter(x => x !== 'exhaustion');
+  renderExhaustion();
+  renderConditions();
+  if (currentSheet) { currentSheet.exhaustion = exhaustionLevel; currentSheet.conditions = activeConditions.slice(); }
+  if (typeof pushOpenSheetToCombat === 'function') pushOpenSheetToCombat();
+  debouncedSave();
+}
+
+function loadExhaustion(cd) {
+  const raw = cd && cd.exhaustion;
+  exhaustionLevel = Math.max(0, Math.min(6, Math.round(+raw || 0)));
+  // Older sheets only have the on/off chip: treat it as level 1 so nothing is lost.
+  if (!exhaustionLevel && Array.isArray(cd && cd.conditions) && cd.conditions.includes('exhaustion')) exhaustionLevel = 1;
+  renderExhaustion();
+}
+
+function wireExhaustion() {
+  const btn = document.getElementById('exhClearBtn');
+  if (btn && !btn._wired) { btn._wired = true; btn.addEventListener('click', () => setExhaustion(0)); }
+}
+
 // Public API for later spell automation: CharacterConditions.set('poisoned', true) etc.
 window.CharacterConditions = {
   set: setCondition,
   has: (id) => activeConditions.includes(id),
   list: () => activeConditions.slice(),
-  attackMode: conditionAttackMode
+  attackMode: conditionAttackMode,
+  setExhaustion: setExhaustion,
+  exhaustion: () => exhaustionLevel
 };
 
 // ─── INITIATIVE / COMBAT TRACKER ─────────────────────────────────────────────
@@ -6295,13 +6449,60 @@ function startNpcPolling() {
   _npcPollTimer = setTimeout(tick, 4000);
 }
 
+// ─── SSE HEALTH WATCHDOG ─────────────────────────────────────────────────────
+// An EventSource cannot always tell that it has died. Over the Cloudflare tunnel
+// the TCP socket can stay open while nothing is forwarded any more: no error
+// fires, so the browser's auto-reconnect never triggers and the stream is a
+// silent black hole. The only reliable signal is SILENCE — the server sends a
+// `{type:'ping'}` every 20s, so if we hear NOTHING for well over that, the
+// stream is dead regardless of what the connection claims.
+//
+// Also exposes isHealthy() so the polling fallbacks can back off while SSE is
+// demonstrably working, and poll aggressively again the moment it goes quiet.
+window.SSEHealth = (function () {
+  const SILENCE_MS = 50000;   // > 2 missed 20s heartbeats
+  let lastBeat = Date.now();
+  return {
+    beat() { lastBeat = Date.now(); },
+    sinceBeat() { return Date.now() - lastBeat; },
+    isHealthy() { return (Date.now() - lastBeat) < SILENCE_MS; },
+    SILENCE_MS
+  };
+})();
+
 // ─── SSE ─────────────────────────────────────────────────────────────────────
 function connectSSE() {
+  let _retry = 0;             // consecutive failures → exponential backoff
+  let _watchdog = null;
+  let _current = null;
+
   function attach() {
     const es = new EventSource('/api/npc-events');
+    _current = es;
+
+    // Reconnect with exponential backoff + jitter instead of a fixed 3s retry.
+    // If the tunnel is down, a fixed retry means every open tab hammers it
+    // forever; backoff caps the load and jitter stops tabs syncing into bursts.
+    const reconnect = () => {
+      if (_watchdog) { clearInterval(_watchdog); _watchdog = null; }
+      try { es.close(); } catch (_) {}
+      const wait = Math.min(30000, 1000 * Math.pow(2, _retry++)) + Math.random() * 1000;
+      setTimeout(attach, wait);
+    };
+
+    es.onopen = () => { _retry = 0; SSEHealth.beat(); };   // clean connect → reset backoff
+
+    // Watchdog: force a reconnect if the stream goes silent past the heartbeat
+    // window. This is what recovers the "open but dead" tunnel case.
+    _watchdog = setInterval(() => {
+      if (SSEHealth.sinceBeat() > SSEHealth.SILENCE_MS) reconnect();
+    }, 10000);
+
     es.onmessage = e => {
+      SSEHealth.beat();       // ANY traffic (including pings) proves the stream is alive
       try {
         const data = JSON.parse(e.data);
+        if (data.type === 'ping') return;   // heartbeat only — nothing to apply
         if (data.type === 'sheetDeleted') {
           // Remove from local list and re-render sidebar
           allSheets = allSheets.filter(s => s.npcId !== data.npcId);
@@ -6345,7 +6546,7 @@ function connectSSE() {
         if (data.type === 'combat' && data.state && typeof ingestCombat === 'function') ingestCombat(data.state);
       } catch(_) {}
     };
-    es.onerror = () => { es.close(); setTimeout(attach, 3000); };
+    es.onerror = () => reconnect();
   }
   attach();
 }

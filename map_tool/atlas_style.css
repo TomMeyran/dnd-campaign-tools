@@ -326,9 +326,9 @@ button.loc-link:disabled { color: var(--ink-faint); cursor: wait; }
   overflow: hidden;
   position: relative;
   background: var(--ink);
-  cursor: grab;
+  cursor: url('../pan_open.cur'), grab;
 }
-#map-area.grabbing { cursor: grabbing; }
+#map-area.grabbing { cursor: url('../pan_closed.cur'), grabbing; }
 #map-area.edit-mode { cursor: crosshair; }
 
 /* ── ZOOM/PAN VIEWPORT ───────────────────────────────────── */

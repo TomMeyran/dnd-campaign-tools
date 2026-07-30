@@ -437,7 +437,13 @@
 
   // ── public API + wiring ──
   function ingest(s) { state = normalize(s); _stateSig = JSON.stringify(state); render(); }
-  function load() { fetch('/api/combat').then(r => r.json()).then(d => { if (d && d.state) ingest(d.state); }).catch(() => {}); }
+  function load() {
+    fetch('/api/combat').then(r => {
+      const tag = r.headers.get('ETag');
+      if (tag) _combatEtag = tag;                 // seed the conditional-poll validator
+      return r.json();
+    }).then(d => { if (d && d.state) ingest(d.state); }).catch(() => {});
+  }
 
   // ── polling fallback (initiative + attacks) ────────────────────────────────
   // Combat state (which drives BOTH the initiative and attacks panels) normally arrives live
@@ -447,29 +453,51 @@
   //     poll is a no-op — no re-render, no flicker;
   //   • skip while the DM is mid-edit (an init input is focused, or this DM just saved) so the
   //     poll never overwrites an in-progress change with its own stale echo.
+  //   • ADAPTIVE INTERVAL: when the SSE stream is provably healthy (the host page
+  //     heard from it recently, via window.SSEHealth) the poll backs off to
+  //     COMBAT_POLL_SLOW; if the stream goes quiet it drops back to COMBAT_POLL_FAST.
+  //     Same safety net, a fraction of the requests.
+  //   • CONDITIONAL REQUEST: the server ETags /api/combat, so an unchanged poll
+  //     comes back 304 with no body and we skip the JSON parse entirely.
   var _stateSig = JSON.stringify(state);
   var _combatPollTimer = null;
-  var COMBAT_POLL_MS = 4000;
+  var COMBAT_POLL_FAST = 4000;    // SSE looks dead → keep the net tight
+  var COMBAT_POLL_SLOW = 20000;   // SSE is delivering → just a backstop
+  var _combatEtag = null;
+
+  // How long to wait before the next poll, based on SSE health.
+  function combatPollDelay() {
+    var h = window.SSEHealth;
+    return (h && typeof h.isHealthy === 'function' && h.isHealthy())
+      ? COMBAT_POLL_SLOW : COMBAT_POLL_FAST;
+  }
+
   function combatPollTick() {
     var editing = document.querySelector('.cp-init-edit');            // DM typing an init value
     var busy = IS_DM && (editing || saveTimer);                       // ...or a save is in flight
-    var done = function () { _combatPollTimer = setTimeout(combatPollTick, COMBAT_POLL_MS); };
+    var done = function () { _combatPollTimer = setTimeout(combatPollTick, combatPollDelay()); };
     if (busy) { done(); return; }
-    fetch('/api/combat').then(function (r) { return r.json(); }).then(function (d) {
-      if (d && d.state) {
-        var sig = JSON.stringify(normalize(d.state));
-        if (sig !== _stateSig) ingest(d.state);   // changed → apply (and refresh the sig)
-      }
-      done();
+    var opts = _combatEtag ? { headers: { 'If-None-Match': _combatEtag } } : undefined;
+    fetch('/api/combat', opts).then(function (r) {
+      var tag = r.headers.get('ETag');
+      if (tag) _combatEtag = tag;
+      if (r.status === 304) { done(); return; }      // unchanged → nothing to do
+      return r.json().then(function (d) {
+        if (d && d.state) {
+          var sig = JSON.stringify(normalize(d.state));
+          if (sig !== _stateSig) ingest(d.state);   // changed → apply (and refresh the sig)
+        }
+        done();
+      });
     }, done);
   }
   function startCombatPolling() {
     if (_combatPollTimer) return;
     document.addEventListener('visibilitychange', function () {
       if (document.hidden) { clearTimeout(_combatPollTimer); _combatPollTimer = null; }
-      else if (!_combatPollTimer) { load(); _combatPollTimer = setTimeout(combatPollTick, COMBAT_POLL_MS); }
+      else if (!_combatPollTimer) { load(); _combatPollTimer = setTimeout(combatPollTick, combatPollDelay()); }
     });
-    _combatPollTimer = setTimeout(combatPollTick, COMBAT_POLL_MS);
+    _combatPollTimer = setTimeout(combatPollTick, combatPollDelay());
   }
 
   window.CombatPanel = Object.assign(window.CombatPanel || {}, {

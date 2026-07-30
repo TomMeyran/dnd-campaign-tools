@@ -1822,10 +1822,38 @@ const npcSseClients = new Set(); // all NPC tool SSE clients
 
 function initSse(res) {
   res.setHeader('Content-Type',      'text/event-stream');
-  res.setHeader('Cache-Control',     'no-cache');
+  // no-store (not just no-cache): an SSE stream must never be held by an
+  // intermediary. Cloudflare's tunnel is happier when told outright.
+  res.setHeader('Cache-Control',     'no-store');
   res.setHeader('Connection',        'keep-alive');
   res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders();
+}
+
+// ── EVENT IDS + REPLAY BUFFER ────────────────────────────────────────────────
+// Every broadcast carries a monotonic `id:`. On reconnect the browser
+// automatically sends back the last id it saw in the `Last-Event-ID` header, so
+// we can replay whatever it missed while the tunnel was down. Without this a
+// dropped connection silently loses every event in the gap and the client only
+// recovers on its next poll.
+let _evtSeq = 0;
+const _evtLog = [];          // ring buffer of { id, msg }
+const EVT_LOG_MAX = 300;     // ~a few minutes of traffic; bounded so it can't grow
+
+// Frame one event and remember it for replay.
+function sseFrame(data) {
+  const id  = ++_evtSeq;
+  const msg = `id: ${id}\ndata: ${JSON.stringify(data)}\n\n`;
+  _evtLog.push({ id, msg });
+  if (_evtLog.length > EVT_LOG_MAX) _evtLog.shift();
+  return msg;
+}
+
+// Replay everything newer than the id the client last received.
+function replayMissed(req, res) {
+  const since = parseInt(req.headers['last-event-id'], 10);
+  if (!Number.isFinite(since)) return;
+  _evtLog.forEach(e => { if (e.id > since) { try { res.write(e.msg); } catch (_) {} } });
 }
 
 // Subscribe an SSE response to a client Set: send stream headers, register it, keep
@@ -1835,17 +1863,23 @@ function subscribeSse(req, res, set) {
   initSse(res);
   res._isDM = isDM(req);   // tag DM connections so player-only broadcasts (Sync players) can skip them
   set.add(res);
-  const hb = setInterval(() => { try { res.write(': ping\n\n'); } catch (e) {} }, 20000);
+  replayMissed(req, res);  // catch the client up before any new traffic arrives
+  // Heartbeat as a real `data:` event, not a `: ping` comment. Comments do NOT
+  // fire the client's onmessage, so a comment-only heartbeat is invisible to the
+  // watchdog that detects a silently-dead stream.
+  const hb = setInterval(() => {
+    try { res.write(`data: ${JSON.stringify({ type: 'ping', t: Date.now() })}\n\n`); } catch (e) {}
+  }, 20000);
   req.on('close', () => { clearInterval(hb); set.delete(res); });
 }
 
 function broadcast(town, data) {
-  const msg = `data: ${JSON.stringify(data)}\n\n`;
+  const msg = sseFrame(data);
   sseClients.get(town)?.forEach(res => { try { res.write(msg); } catch(e) {} });
 }
 
 function broadcastNpc(data) {
-  const msg   = `data: ${JSON.stringify(data)}\n\n`;
+  const msg   = sseFrame(data);
   const npcId = data.npcId ? slug(data.npcId) : null;
   npcSseClients.forEach(c => {
     // Character-specific events (with an npcId) reach the DM and ONLY the player who
@@ -1859,7 +1893,7 @@ function broadcastNpc(data) {
 }
 
 function broadcastAll(data) {
-  const msg = `data: ${JSON.stringify(data)}\n\n`;
+  const msg = sseFrame(data);
   sseClients.forEach(clients => {
     clients.forEach(res => { try { res.write(msg); } catch(e) {} });
   });
@@ -1877,6 +1911,11 @@ function broadcastEverywhere(data) {
 // Fan out to PLAYER streams only, skipping the DM's own tabs. Atlas connections are
 // tagged with res._isDM at subscribe time; NPC-tool clients carry a pid ('' = DM).
 // Used by "Sync players" so the DM's tab isn't reloaded out from under them.
+//
+// NOTE: deliberately NOT id-tagged / not written to the replay log. The replay
+// buffer is global, so a reconnecting DM would be sent player-only events (and
+// vice versa in broadcastDMs, which carries hidden rolls). Audience-filtered
+// events must never be replayable; only the unfiltered fan-outs get ids.
 function broadcastPlayers(data) {
   const msg = `data: ${JSON.stringify(data)}\n\n`;
   sseClients.forEach(clients => clients.forEach(res => { if (!res._isDM) { try { res.write(msg); } catch (e) {} } }));
@@ -2533,6 +2572,7 @@ const KNOWN_SPELL_FIELDS = new Set([
   'effect','area','confidence','trigger','resave',
   'ritual','concentration','tags',
   'scaleDice','scaleStep','scaleBase',   // structured upcast scaling for the slot dropdown
+  'seedMismatch',                        // note on a spell whose seed metadata is believed wrong (see spell-rules-batch-07..09)
 ]);
 
 // Fill in (or extend) the catalog from an external dataset — the intended way to add
@@ -2936,7 +2976,13 @@ app.get('/api/npc-events', dmOrPlayer, (req, res) => {
   initSse(res);
   const entry = { res, pid: isDM(req) ? '' : ((currentPlayer(req) || {}).pid || '') };
   npcSseClients.add(entry);
-  const hb = setInterval(() => { try { res.write(': ping\n\n'); } catch (e) {} }, 20000);
+  // This route can't use subscribeSse() (it stores an {res,pid} entry, not a bare
+  // res), so it repeats the same two behaviours: replay what the client missed,
+  // and heartbeat as a real `data:` event that fires the client-side watchdog.
+  replayMissed(req, res);
+  const hb = setInterval(() => {
+    try { res.write(`data: ${JSON.stringify({ type: 'ping', t: Date.now() })}\n\n`); } catch (e) {}
+  }, 20000);
   req.on('close', () => { clearInterval(hb); npcSseClients.delete(entry); });
 });
 
@@ -3197,7 +3243,21 @@ function sanitizeCombatant(c) {
   };
 }
 
-app.get('/api/combat', (req, res) => { res.json({ state: combatState }); });
+// Conditional JSON: hash the payload into an ETag and answer an unchanged poll
+// with a bodyless 304 (~200 bytes) instead of re-shipping the whole state. The
+// polls are a safety net for a tunnel that drops SSE, so they run forever —
+// making the common "nothing changed" case nearly free is what keeps that cheap.
+// Mirrors the ETag/revalidate strategy already used for static images.
+function jsonIfChanged(req, res, payload) {
+  const body = JSON.stringify(payload);
+  const tag  = '"' + crypto.createHash('sha1').update(body).digest('hex').slice(0, 16) + '"';
+  res.setHeader('ETag', tag);
+  res.setHeader('Cache-Control', 'no-cache');   // must revalidate, may reuse on 304
+  if (req.headers['if-none-match'] === tag) return res.status(304).end();
+  res.type('application/json').send(body);
+}
+
+app.get('/api/combat', (req, res) => { jsonIfChanged(req, res, { state: combatState }); });
 
 // Replace the whole combat state (DM only). The client owns ordering/turn logic and
 // posts the resulting state; the server just stores + fans it out.

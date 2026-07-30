@@ -11,9 +11,9 @@
 <input type="file" id="map-img-upload" accept="image/*" style="display:none">
 
 <!-- corner ornaments -->
-<div class="corner tr">ג¦</div>
-<div class="corner bl">ג¦</div>
-<div class="corner br">ג¦</div>
+<div class="corner tr">✦</div>
+<div class="corner bl">✦</div>
+<div class="corner br">✦</div>
 <div id="frame"></div>
 
 <div id="layout">
@@ -33,9 +33,9 @@
         <button type="button" class="player-link-copy" id="btn-sync-players" style="display:none" title="Refresh every open player tool and re-sync all views">Sync players</button>
       </div>
 
-      <!-- MAP TOOLS DROPDOWN ג€” collects every map-editing control -->
+      <!-- MAP TOOLS DROPDOWN — collects every map-editing control -->
       <div class="maptools-wrap" id="maptools-wrap">
-        <button class="btn btn-gold" id="btn-maptools" type="button">Map Tools ג–¾</button>
+        <button class="btn btn-gold" id="btn-maptools" type="button">Map Tools ▾</button>
         <div id="maptools-menu">
           <button class="maptools-item active" id="btn-labels" type="button">Hide Locations</button>
 
@@ -57,7 +57,7 @@
 
           <!-- Add: nested submenu (DM only) -->
           <div class="maptools-sub maptools-submenu-wrap" id="add-dropdown-wrap" style="display:none">
-            <button class="maptools-item maptools-item-caret" id="btn-addtown" type="button">Add<span class="maptools-caret">ג–¸</span></button>
+            <button class="maptools-item maptools-item-caret" id="btn-addtown" type="button">Add<span class="maptools-caret">▸</span></button>
             <div id="add-dropdown-menu" class="maptools-submenu">
               <button class="maptools-item" id="btn-add-location" type="button">Add Location</button>
               <button class="maptools-item" id="btn-add-marker" type="button">Add Marker</button>
@@ -75,7 +75,7 @@
     <div id="sidebar">
       <div id="sidebar-head">
         <h2 class="display">Locations</h2>
-        <input id="search" type="text" placeholder="Search towns &amp; placesג€¦">
+        <input id="search" type="text" placeholder="Search towns &amp; places…">
         <div id="location-count"></div>
       </div>
       <div id="location-list"></div>
@@ -92,8 +92,8 @@
         <!-- animated hexagonal travel grid (above image, below markers) -->
         <svg id="hex-grid-overlay" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
           <defs>
-            <!-- Two pointy-top hexagons per tile (34.641 ֳ— 60) that tile into a
-                 seamless honeycomb. Circumradius 20 ג†’ neighbour distance גˆ3ֲ·20. -->
+            <!-- Two pointy-top hexagons per tile (34.641 × 60) that tile into a
+                 seamless honeycomb. Circumradius 20 → neighbour distance √3·20. -->
             <pattern id="hex-pattern" width="34.641" height="60" patternUnits="userSpaceOnUse" patternTransform="scale(3.2)">
               <path fill="none" stroke="#000000" stroke-width="1.4" stroke-linejoin="round"
                     d="M17.3205 0L34.641 10L34.641 30L17.3205 40L0 30L0 10Z
@@ -110,8 +110,8 @@
       <div id="zoom-controls">
         <button class="zoom-btn" id="btn-zoom-in" title="Zoom in">+</button>
         <div id="zoom-label">100%</div>
-        <button class="zoom-btn" id="btn-zoom-out" title="Zoom out">גˆ’</button>
-        <button class="zoom-btn" id="btn-zoom-reset" style="font-size:12px" title="Reset view">ג‚</button>
+        <button class="zoom-btn" id="btn-zoom-out" title="Zoom out">−</button>
+        <button class="zoom-btn" id="btn-zoom-reset" style="font-size:12px" title="Reset view">⌂</button>
       </div>
 
       <!-- Compass rose (SVG) -->
@@ -119,7 +119,7 @@
         <svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
           <!-- Static outer ring -->
           <circle cx="32" cy="32" r="30" fill="none" stroke="#6b4f2e" stroke-width="1.2" opacity=".7"/>
-          <!-- Rotating cross ג€” gets .loading class while map image is loading -->
+          <!-- Rotating cross — gets .loading class while map image is loading -->
           <g id="compass-needle">
             <polygon points="32,4 29,32 32,28 35,32" fill="#8b2020"/>
             <polygon points="32,60 29,32 32,36 35,32" fill="#6b4f2e"/>
@@ -136,7 +136,7 @@
       <!-- Placement mode instruction banner -->
       <div id="placement-banner"></div>
       <!-- Real-time position readout -->
-      <div id="coords-display">ג€” ֲ· ג€”</div>
+      <div id="coords-display">— · —</div>
     </div>
 
   </div><!-- /body-row -->
@@ -154,7 +154,7 @@
 <div id="addtown-overlay">
   <div id="addtown-box">
     <h3 class="display">Add Location</h3>
-    <input id="addtown-name" type="text" placeholder="Location nameג€¦">
+    <input id="addtown-name" type="text" placeholder="Location name…">
     <div id="addtown-hint">Enter the name of the new location. Click on the map to place it.</div>
     <div id="addtown-actions">
       <button class="btn btn-gold" id="btn-submit-addtown">Add Location</button>
@@ -164,17 +164,17 @@
 </div>
 
 <script>
-// ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•
-//  NOCROPI REGIONAL MAP  ג€”  main application script
-// ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•ג•
+// ══════════════════════════════════════════════════════════════
+//  NOCROPI REGIONAL MAP  —  main application script
+// ══════════════════════════════════════════════════════════════
 
 // IS_DM is resolved from the server (same logic as map_tool.html).
-// Direct localhost access ג†’ DM; Cloudflare tunnel ג†’ player.
+// Direct localhost access → DM; Cloudflare tunnel → player.
 // ?player_test in the URL forces player mode for local testing.
 let IS_DM = false;
 const PLAYER_TEST = new URLSearchParams(location.search).has('player_test');
 
-// Defaults ג€” overridden by DB content on load
+// Defaults — overridden by DB content on load
 let REGION_NAME          = 'Nocropi';
 let MAP_IMAGE_FILENAME   = 'locations/nocropi.webp';
 let LOCATION_MAP_DEFAULT = {};
@@ -184,7 +184,7 @@ let LOCATIONS            = [];
 let townsWithContent = new Set();
 let npcCountByTown = {};
 
-// ג”€ג”€ STATE ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
+// ── STATE ─────────────────────────────────────────────────────
 let mapW = 1200, mapH = 800;   // set properly when image loads
 let scale   = 1;
 let panX    = 0, panY    = 0;
@@ -207,7 +207,7 @@ let pendingClick    = false;
 let clickStartX     = 0, clickStartY = 0;
 let showCoords      = false;
 
-// ג”€ג”€ ELEMENTS ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
+// ── ELEMENTS ──────────────────────────────────────────────────
 const mapArea       = document.getElementById('map-area');
 const viewport      = document.getElementById('map-viewport');
 const markersLayer  = document.getElementById('markers-layer');
@@ -220,7 +220,7 @@ const tooltipHint   = document.getElementById('tooltip-hint');
 const coordsDisplay = document.getElementById('coords-display');
 const locationCount = document.getElementById('location-count');
 
-// ג”€ג”€ BOOT ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
+// ── BOOT ──────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('compass-needle').classList.add('loading');
   // Start loading the map image immediately so it fetches in parallel with the API
@@ -233,7 +233,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       fetch('/api/region/nocropi').then(r => r.json())
     ]);
     IS_DM = auth.isDM && !PLAYER_TEST;
-    if (window.DiceRoll) DiceRoll.setDM(IS_DM);   // only the DM may right-click a roll ג†’ hidden
+    if (window.DiceRoll) DiceRoll.setDM(IS_DM);   // only the DM may right-click a roll → hidden
     townsWithContent = new Set(regionData.townsWithContent || []);
     npcCountByTown = regionData.npcCountByTown || {};
     // Location visibility (and party/hexgrid state) always comes from the database.
@@ -248,7 +248,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
   } catch(e) {
     console.error('Failed to connect to server:', e);
-    showFatalBanner('Cannot reach the map server ג€” make sure server.js is running.');
+    showFatalBanner('Cannot reach the map server — make sure server.js is running.');
     return;
   }
 
@@ -263,7 +263,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('dmViewBadge').style.display       = '';
     positionDmBadge();
     window.addEventListener('resize', positionDmBadge);
-    // NPC tool + Edit DB buttons (DM only) ג€” carry the DM key so the new tab is DM too.
+    // NPC tool + Edit DB buttons (DM only) — carry the DM key so the new tab is DM too.
     const openDmTool = (path) => {
       const q = new URLSearchParams();
       const dmkey = new URLSearchParams(location.search).get('dmkey');
@@ -294,7 +294,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     });
     fetchTunnelUrl();
     setInterval(fetchTunnelUrl, 10 * 60 * 1000);
-    // Player Links button (replaces the raw tunnel link) ג†’ roster + Discord delivery
+    // Player Links button (replaces the raw tunnel link) → roster + Discord delivery
     document.getElementById('playerLinkBar')?.classList.add('visible');
     document.getElementById('playerLinksBtn')?.addEventListener('click', openPlayerLinks);
     document.getElementById('plkClose')?.addEventListener('click', closePlayerLinks);
@@ -335,7 +335,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   setTimeout(fitView, 80);
 });
 
-// ג”€ג”€ FATAL BANNER ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
+// ── FATAL BANNER ──────────────────────────────────────────────
 function showFatalBanner(message) {
   document.getElementById('compass-needle').classList.remove('loading');
   const banner = document.createElement('div');
@@ -344,7 +344,7 @@ function showFatalBanner(message) {
   document.body.prepend(banner);
 }
 
-// ג”€ג”€ MAP LOAD / ERROR ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
+// ── MAP LOAD / ERROR ──────────────────────────────────────────
 function finalizeMapSetup() {
   document.getElementById('compass-needle').classList.remove('loading');
   viewport.style.width  = mapW + 'px';
@@ -373,7 +373,7 @@ function onMapError(img) {
   finalizeMapSetup();
 }
 
-// ג”€ג”€ FIT VIEW ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
+// ── FIT VIEW ──────────────────────────────────────────────────
 function fitView() {
   const areaW = mapArea.clientWidth;
   const areaH = mapArea.clientHeight;
@@ -387,7 +387,7 @@ function fitView() {
   applyTransform();
 }
 
-// ג”€ג”€ TRANSFORM ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
+// ── TRANSFORM ─────────────────────────────────────────────────
 function applyTransform() {
   viewport.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
   zoomLabel.textContent = Math.round(scale * 100) + '%';
@@ -397,7 +397,7 @@ function clampScale(s) {
   return Math.max(minScale, Math.min(maxScale, s));
 }
 
-// ג”€ג”€ ZOOM ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
+// ── ZOOM ──────────────────────────────────────────────────────
 function zoomStep(delta) {
   const areaW = mapArea.clientWidth;
   const areaH = mapArea.clientHeight;
@@ -418,7 +418,7 @@ function resetView() {
   fitView();
 }
 
-// ג”€ג”€ MOUSE WHEEL ZOOM ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
+// ── MOUSE WHEEL ZOOM ──────────────────────────────────────────
 mapArea.addEventListener('wheel', e => {
   e.preventDefault();
   const rect = mapArea.getBoundingClientRect();
@@ -428,7 +428,7 @@ mapArea.addEventListener('wheel', e => {
   zoomAt(cx, cy, delta);
 }, { passive: false });
 
-// ג”€ג”€ PAN (mouse) ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
+// ── PAN (mouse) ───────────────────────────────────────────────
 mapArea.addEventListener('mousedown', e => {
   if (draggingMarker) return;
   if (editMode && e.target.closest('.marker')) return;
@@ -481,7 +481,7 @@ window.addEventListener('mousemove', e => {
       coordsDisplay.textContent = 'X: ' + raw.x.toFixed(1) + '  Y: ' + raw.y.toFixed(1);
     }
   } else if (showCoords) {
-    coordsDisplay.textContent = 'ג€” ֲ· ג€”';
+    coordsDisplay.textContent = '— · —';
   }
 });
 
@@ -520,7 +520,7 @@ window.addEventListener('blur', () => {
   if (partyDragging)  { partyDragging = false; partyMarkerEl?.classList.remove('dragging'); clearTimeout(_partyPosTimer); saveLocVisibility(); }
 });
 
-// ג”€ג”€ TOUCH PAN / PINCH ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
+// ── TOUCH PAN / PINCH ─────────────────────────────────────────
 let lastTouches = null;
 
 mapArea.addEventListener('touchstart', e => {
@@ -560,13 +560,13 @@ function dist(a, b) {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
-// ג”€ג”€ SIDEBAR BUILD ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
-// ג”€ג”€ LOCATION VISIBILITY (DM) ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
+// ── SIDEBAR BUILD ─────────────────────────────────────────────
+// ── LOCATION VISIBILITY (DM) ──────────────────────────────────
 let locVisibility = {};
 
 let _visSaveTimer = null;
 function saveLocVisibility() {
-  // Persist to the database only ג€” no browser cache.
+  // Persist to the database only — no browser cache.
   if (!IS_DM) return;
   clearTimeout(_visSaveTimer);
   _visSaveTimer = setTimeout(() => {
@@ -600,7 +600,7 @@ function updateLocVisUI() {
     el.classList.toggle('dm-hidden', !vis);
     const btn = el.querySelector('.loc-vis-btn');
     if (btn) {
-      btn.textContent = vis ? 'ג— Visible' : 'ג—‹ Hidden';
+      btn.textContent = vis ? '● Visible' : '○ Hidden';
       btn.classList.toggle('hidden-state', !vis);
     }
   });
@@ -637,7 +637,7 @@ function buildSidebar() {
         ? ''
         : showLink
           ? `<a class="loc-link display" href="${!/^(javascript|data|vbscript):/i.test(pageUrl) ? escHtml(pageUrl + (PLAYER_TEST ? '&player_test' : '')) : '#'}" target="_blank" rel="noopener"
-                onclick="event.stopPropagation()">Open Town Map ג†’</a>`
+                onclick="event.stopPropagation()">Open Town Map →</a>`
           : showAddMap
             ? `<button class="loc-link display" data-addmap="${loc.id}">Add a location map</button>`
             : `<span class="loc-link no-page display">No town map yet</span>`}
@@ -659,13 +659,13 @@ function buildSidebar() {
       const vis = isLocVisible(loc.id);
       const visBtn = document.createElement('button');
       visBtn.className = 'loc-vis-btn' + (vis ? '' : ' hidden-state');
-      visBtn.textContent = vis ? 'ג— Visible' : 'ג—‹ Hidden';
+      visBtn.textContent = vis ? '● Visible' : '○ Hidden';
       visBtn.onclick = e => { e.stopPropagation(); toggleLocVisibility(loc.id); };
       el.appendChild(visBtn);
 
       const delBtn = document.createElement('button');
       delBtn.className = 'loc-remove-btn';
-      delBtn.textContent = 'ֳ—';
+      delBtn.textContent = '×';
       delBtn.title = 'Remove location';
       delBtn.onclick = e => {
         e.stopPropagation();
@@ -685,10 +685,10 @@ function updateCount(visible, total) {
   const locPart = IS_DM
     ? (visible === total ? plural(total, 'location') : `${visible} of ${total} shown`)
     : plural(visible, 'location');
-  locationCount.textContent = totalNpcs > 0 ? `${locPart} ֲ· ${totalNpcs} NPCs` : locPart;
+  locationCount.textContent = totalNpcs > 0 ? `${locPart} · ${totalNpcs} NPCs` : locPart;
 }
 
-// ג”€ג”€ FILTER ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
+// ── FILTER ────────────────────────────────────────────────────
 function filterList(q) {
   q = q.trim().toLowerCase();
   let visible = 0;
@@ -706,7 +706,7 @@ function filterList(q) {
   updateCount(visible, LOCATIONS.length);
 }
 
-// ג”€ג”€ PARTY MARKER ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
+// ── PARTY MARKER ──────────────────────────────────────────────
 let partyMarkerEl = null;
 
 function getPartyPos() {
@@ -723,7 +723,7 @@ function renderPartyMarker() {
   partyMarkerEl.style.top  = pos.y + '%';
 }
 
-// Keep the Map-Tools "Party Location" row in sync: "Setג€¦" (click-to-place) when unset,
+// Keep the Map-Tools "Party Location" row in sync: "Set…" (click-to-place) when unset,
 // jump-to when set. Hidden for players until a position exists (they can't place one).
 function refreshPartyLocBtn() {
   const btn = document.getElementById('btn-party-loc');
@@ -780,7 +780,7 @@ function initPartyMarker() {
   renderPartyMarker();
 }
 
-// ג”€ג”€ MARKERS RENDER ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
+// ── MARKERS RENDER ────────────────────────────────────────────
 function renderMarkers() {
   markersLayer.innerHTML = '';
   LOCATIONS.forEach(loc => {
@@ -859,7 +859,7 @@ function typeColor(type) {
   return { bg: '#3b2a14', ring: '#c8922a', text: '#f2e8d0' };
 }
 
-// ג”€ג”€ ACTIVATE LOCATION ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
+// ── ACTIVATE LOCATION ─────────────────────────────────────────
 function activateLocation(id, panToIt) {
   activeId = id;
 
@@ -891,14 +891,14 @@ function activateLocation(id, panToIt) {
   }
 }
 
-// ג”€ג”€ TOOLTIP ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
+// ── TOOLTIP ───────────────────────────────────────────────────
 function showTooltip(loc, ev) {
   tooltipType.textContent = loc.type;
   tooltipName.textContent = loc.name;
   tooltipDesc.textContent = loc.desc;
   const _tSlug = townSlugOf(loc);
   const _hasMap = _tSlug ? townsWithContent.has(_tSlug) : false;
-  tooltipHint.textContent = (IS_DM ? !!loc.page : _hasMap) ? 'Click to open town map ג†’' : '';
+  tooltipHint.textContent = (IS_DM ? !!loc.page : _hasMap) ? 'Click to open town map →' : '';
   tooltip.classList.add('visible');
   positionTooltip(ev);
 }
@@ -923,8 +923,8 @@ function positionTooltip(ev) {
   tooltip.style.top  = y + 'px';
 }
 
-// ג”€ג”€ MARKER BOUNDS CLAMP ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
-// Keeps the 28ֳ—28 seal fully inside the map image at all times.
+// ── MARKER BOUNDS CLAMP ───────────────────────────────────────
+// Keeps the 28×28 seal fully inside the map image at all times.
 function clientToMarkerPos(clientX, clientY) {
   const { x, y } = clientToMapPct(clientX, clientY);
   return clampMarkerPos(x, y);
@@ -939,7 +939,7 @@ function clampMarkerPos(x, y) {
   };
 }
 
-// ג”€ג”€ HANDLE MARKER DRAG ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
+// ── HANDLE MARKER DRAG ────────────────────────────────────────
 function handleMarkerDrag(e) {
   if (!draggingMarker) return;
   const pos = clientToMarkerPos(e.clientX, e.clientY);
@@ -948,7 +948,7 @@ function handleMarkerDrag(e) {
   draggingMarker.el.style.top  = pos.y + '%';
 }
 
-// ג”€ג”€ TOGGLE LABELS ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
+// ── TOGGLE LABELS ─────────────────────────────────────────────
 function toggleLabels() {
   labelsVisible = !labelsVisible;
   const btn = document.getElementById('btn-labels');
@@ -957,9 +957,9 @@ function toggleLabels() {
   updateMarkerLabels();
 }
 
-// ג”€ג”€ HEX GRID (DM-controlled, synced to players) ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
+// ── HEX GRID (DM-controlled, synced to players) ───────────────
 // State piggybacks on locVisibility['__hexgrid__'] so it travels through
-// the same save ג†’ broadcast pipeline as the party marker. { on, scale }
+// the same save → broadcast pipeline as the party marker. { on, scale }
 // where `scale` is the grid cell size in pixels (map space).
 let hexGrid = { on: true, scale: 112 };
 let _hexSaveTimer = null;
@@ -968,8 +968,8 @@ function applyHexGrid() {
   const overlay = document.getElementById('hex-grid-overlay');
   const pattern = document.getElementById('hex-pattern');
   if (overlay) overlay.classList.toggle('hidden', !hexGrid.on);
-  // Base pattern tile is 28px wide; scale so one tile ג‰ˆ hexGrid.scale px.
-  // Base hex tile is 34.641px wide; scale so one hex ג‰ˆ hexGrid.scale px across.
+  // Base pattern tile is 28px wide; scale so one tile ≈ hexGrid.scale px.
+  // Base hex tile is 34.641px wide; scale so one hex ≈ hexGrid.scale px across.
   if (pattern) pattern.setAttribute('patternTransform', 'scale(' + (hexGrid.scale / 34.641) + ')');
   const btn = document.getElementById('btn-hexgrid');
   if (btn) btn.classList.toggle('active', hexGrid.on);
@@ -989,7 +989,7 @@ function loadHexGridFromVis() {
   applyHexGrid();
 }
 
-// DM only ג€” persist + broadcast so players update.
+// DM only — persist + broadcast so players update.
 function saveHexGrid() {
   locVisibility['__hexgrid__'] = { on: hexGrid.on, scale: hexGrid.scale };
   saveLocVisibility();
@@ -1011,15 +1011,15 @@ function setHexScale(px) {
   _hexSaveTimer = setTimeout(saveHexGrid, 300);   // debounce while scrubbing
 }
 
-// ג”€ג”€ TOGGLE COORDS TRACKER ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
+// ── TOGGLE COORDS TRACKER ─────────────────────────────────────
 function toggleCoords() {
   showCoords = !showCoords;
   document.getElementById('btn-coords').classList.toggle('active', showCoords);
   mapArea.classList.toggle('show-coords', showCoords);
-  if (!showCoords) coordsDisplay.textContent = 'ג€” ֲ· ג€”';
+  if (!showCoords) coordsDisplay.textContent = '— · —';
 }
 
-// ג”€ג”€ TOGGLE EDIT ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
+// ── TOGGLE EDIT ───────────────────────────────────────────────
 let _posTimer = null;
 function debouncedSavePositions() {
   clearTimeout(_posTimer);
@@ -1047,7 +1047,7 @@ function toggleEdit() {
   // In edit mode disable link-clicks on markers (handled in click handler above)
 }
 
-// ג”€ג”€ KEYBOARD SHORTCUTS ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
+// ── KEYBOARD SHORTCUTS ────────────────────────────────────────
 document.addEventListener('keydown', e => {
   if (document.activeElement.tagName === 'INPUT'  ||
       document.activeElement.tagName === 'TEXTAREA') return;
@@ -1060,7 +1060,7 @@ document.addEventListener('keydown', e => {
   if ((e.key === 'e' || e.key === 'E') && IS_DM) toggleEdit();
 });
 
-// ג”€ג”€ UTILITY ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
+// ── UTILITY ───────────────────────────────────────────────────
 function plural(n, word) { return `${n} ${word}${n !== 1 ? 's' : ''}`; }
 
 function saveAfterEdit() {
@@ -1086,7 +1086,7 @@ function escHtml(s) {
     .replace(/'/g,'&#39;');
 }
 
-// ג”€ג”€ CUSTOM LOCATIONS (localStorage) ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
+// ── CUSTOM LOCATIONS (localStorage) ───────────────────────────
 const CUSTOM_LOC_KEY = 'nocropi_custom_locations';
 
 function loadCustomLocations() {
@@ -1125,7 +1125,7 @@ function removeMarker(id) {
   rebuildView();
 }
 
-// ג”€ג”€ MAP TOOLS DROPDOWN ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
+// ── MAP TOOLS DROPDOWN ─────────────────────────────────────────
 // The menu stays open while clicking controls inside it; only a click OUTSIDE
 // the whole Map Tools wrap closes it (and the nested Add submenu).
 function toggleMapTools() {
@@ -1139,7 +1139,7 @@ function closeMapTools() {
   closeAddDropdown();
 }
 
-// ג”€ג”€ ADD SUBMENU (nested inside Map Tools) ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
+// ── ADD SUBMENU (nested inside Map Tools) ──────────────────────
 function toggleAddDropdown() {
   document.getElementById('add-dropdown-menu').classList.toggle('open');
 }
@@ -1152,8 +1152,8 @@ document.addEventListener('click', e => {
   if (!e.target.closest('#maptools-wrap')) closeMapTools();
 });
 
-// ג”€ג”€ PARTY LOCATION (set / jump-to) ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
-// Unset ג†’ click-to-place on the map (like Add Location). Set ג†’ pan the map to it.
+// ── PARTY LOCATION (set / jump-to) ─────────────────────────────
+// Unset → click-to-place on the map (like Add Location). Set → pan the map to it.
 function partyLocationAction() {
   closeMapTools();
   const pos = getPartyPos();
@@ -1173,7 +1173,7 @@ function jumpToMapPct(xPct, yPct) {
   applyTransform();
 }
 
-// ג”€ג”€ ADD LOCATION MODAL ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
+// ── ADD LOCATION MODAL ─────────────────────────────────────────
 function capitaliseFirst(input) {
   const v = input.value;
   if (v.length > 0) input.value = v[0].toUpperCase() + v.slice(1);
@@ -1197,14 +1197,14 @@ function submitAddTown() {
   enterPlacementMode(name, 'Location');
 }
 
-// ג”€ג”€ ADD MARKER ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
+// ── ADD MARKER ─────────────────────────────────────────────────
 function openAddMarker() {
   const text = prompt('Marker text:');
   if (!text || !text.trim()) return;
   enterPlacementMode(text.trim(), 'Marker');
 }
 
-// ג”€ג”€ PLACEMENT MODE ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
+// ── PLACEMENT MODE ─────────────────────────────────────────────
 function clientToMapPct(clientX, clientY) {
   const rect = mapArea.getBoundingClientRect();
   const mx   = (clientX - rect.left - panX) / scale;
@@ -1244,7 +1244,7 @@ function enterPlacementMode(name, type) {
   markersLayer.appendChild(ghostMarkerEl);
 
   document.getElementById('placement-banner').textContent =
-    'Click on the map to place "' + name + '"  ֲ·  Esc to cancel';
+    'Click on the map to place "' + name + '"  ·  Esc to cancel';
 }
 
 function exitPlacementMode() {
@@ -1261,7 +1261,7 @@ function finalizePlacement(x, y) {
   const name   = pendingTownName;
   const type   = pendingType;
 
-  // Party marker: not a location ג€” store the position + save/broadcast, then jump to it.
+  // Party marker: not a location — store the position + save/broadcast, then jump to it.
   if (type === 'Party') {
     locVisibility['__party__'] = { x: +x.toFixed(3), y: +y.toFixed(3) };
     saveLocVisibility();
@@ -1306,7 +1306,7 @@ document.getElementById('hexgrid-scale').addEventListener('input', e => setHexSc
 document.getElementById('btn-add-location').addEventListener('click', () => { closeMapTools(); openAddLocation(); });
 document.getElementById('btn-add-marker').addEventListener('click',   () => { closeMapTools(); openAddMarker(); });
 
-// ג”€ג”€ PLAYER LINK BAR ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
+// ── PLAYER LINK BAR ───────────────────────────────────────────
 function setTunnelUrl(url) {
   if (!IS_DM || !url) return;
   const bar  = document.getElementById('playerLinkBar');
@@ -1325,7 +1325,7 @@ async function fetchTunnelUrl() {
   } catch(_) {}
 }
 
-// ג”€ג”€ PLAYER LINKS ROSTER + DISCORD DELIVERY ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
+// ── PLAYER LINKS ROSTER + DISCORD DELIVERY ────────────────────
 let _plkPlayers = [];
 let _plkSheets  = [];
 let _plkMeta    = { hasTunnel: false, discordConfigured: false };
@@ -1350,20 +1350,20 @@ async function loadPlayerRoster() {
 function renderPlayerRoster() {
   const status = document.getElementById('plkStatus');
   const statusParts = [
-    _plkMeta.hasTunnel ? '<span class="ok">ג“ Tunnel active ג€” links are publicly reachable.</span>'
-                       : '<span class="warn">ג  No tunnel yet ג€” links use localhost and won\'t work for remote players.</span>',
-    _plkMeta.discordConfigured ? '<span class="ok">ג“ Discord bot secret configured.</span>'
-                               : '<span class="warn">ג  Discord not configured ג€” set DISCORD_BOT_SECRET in specificUser.js to enable sending.</span>'
+    _plkMeta.hasTunnel ? '<span class="ok">✓ Tunnel active — links are publicly reachable.</span>'
+                       : '<span class="warn">⚠ No tunnel yet — links use localhost and won\'t work for remote players.</span>',
+    _plkMeta.discordConfigured ? '<span class="ok">✓ Discord bot secret configured.</span>'
+                               : '<span class="warn">⚠ Discord not configured — set DISCORD_BOT_SECRET in specificUser.js to enable sending.</span>'
   ];
   if (_plkMeta.dmLink) {
     // The tunnel domain changes on every tunnel restart and the DM cookie is
-    // per-domain ג€” open this once on the new domain to stay DM there.
-    statusParts.push('<span class="warn">נ”‘ DM link for the current tunnel (open once after a tunnel restart): '
+    // per-domain — open this once on the new domain to stay DM there.
+    statusParts.push('<span class="warn">🔑 DM link for the current tunnel (open once after a tunnel restart): '
       + `<a href="${_plkEscAttr(_plkMeta.dmLink)}" target="_blank" rel="noopener">${_plkEscAttr(_plkMeta.dmLink)}</a></span>`);
   }
   status.innerHTML = statusParts.join('<br>');
 
-  const opts = ['<option value="">ג€” none ג€”</option>']
+  const opts = ['<option value="">— none —</option>']
     .concat(_plkSheets.map(s => `<option value="${_plkEscAttr(s.npcId)}">${_plkEscAttr(s.name || s.npcId)}</option>`))
     .join('');
 
@@ -1378,13 +1378,13 @@ function renderPlayerRoster() {
       <td><input class="plk-dc" value="${_plkEscAttr(p.discordTarget)}" placeholder="Discord user ID"></td>
       <td><select class="plk-char">${opts}</select></td>
       <td style="white-space:nowrap"><button type="button" class="plk-mini plk-copy-char" title="Copy the character (NPC tool) link">character</button> <button type="button" class="plk-mini plk-copy-map" title="Copy the maps (atlas) link">map</button></td>
-      <td style="white-space:nowrap"><button type="button" class="plk-mini plk-regen" title="New link (revoke old)">ג†»</button> <button type="button" class="plk-mini danger plk-del" title="Remove">ג•</button></td>`;
+      <td style="white-space:nowrap"><button type="button" class="plk-mini plk-regen" title="New link (revoke old)">↻</button> <button type="button" class="plk-mini danger plk-del" title="Remove">✕</button></td>`;
     tr.querySelector('.plk-char').value = p.characterId || '';
     tr.querySelector('.plk-name').addEventListener('change', e => updatePlayer(p.pid, { name: e.target.value }));
     tr.querySelector('.plk-chan').addEventListener('change', e => updatePlayer(p.pid, { discordChannel: e.target.value }));
     tr.querySelector('.plk-dc').addEventListener('change', e => updatePlayer(p.pid, { discordTarget: e.target.value }));
     tr.querySelector('.plk-char').addEventListener('change', e => updatePlayer(p.pid, { characterId: e.target.value }));
-    const _flash = (b) => { const o = b.textContent; b.textContent = 'ג“ copied'; setTimeout(() => b.textContent = o, 1200); };
+    const _flash = (b) => { const o = b.textContent; b.textContent = '✓ copied'; setTimeout(() => b.textContent = o, 1200); };
     tr.querySelector('.plk-copy-char').addEventListener('click', e => {
       navigator.clipboard?.writeText(p.link || ''); _flash(e.currentTarget);
     });
@@ -1412,19 +1412,19 @@ async function addPlayer() {
 }
 async function sendPlayerLinks() {
   const msg = document.getElementById('plkSendMsg');
-  msg.textContent = 'Sendingג€¦';
+  msg.textContent = 'Sending…';
   try {
     const r = await fetch('/api/players/send-links', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
     const d = await r.json();
     if (!r.ok) { msg.textContent = d.error || 'Failed.'; return; }
     let t = `Queued ${d.queued} link(s) for the bot to deliver.`;
     if (d.skipped && d.skipped.length) t += ` Skipped (no Channel ID): ${d.skipped.join(', ')}.`;
-    if (!d.hasTunnel) t += ' ג  No tunnel ג€” links point to localhost.';
+    if (!d.hasTunnel) t += ' ⚠ No tunnel — links point to localhost.';
     msg.textContent = t;
   } catch (_) { msg.textContent = 'Failed to reach server.'; }
 }
 
-// ג”€ג”€ REGION CONTENT SYNC ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
+// ── REGION CONTENT SYNC ───────────────────────────────────────
 function applyRegionContentFromDB(c) {
   if (c.name)     REGION_NAME        = c.name;
   if (c.mapImage) MAP_IMAGE_FILENAME = c.mapImage;
@@ -1450,11 +1450,11 @@ function positionDmBadge() {
   const colRect = col.getBoundingClientRect();
   const subRect = sub.getBoundingClientRect();
   badge.style.left = (subRect.left - colRect.left + subRect.width / 2) + 'px';
-  document.title = `${REGION_NAME} ג€” Regional Atlas`;
+  document.title = `${REGION_NAME} — Regional Atlas`;
 }
 
 
-// ג”€ג”€ LIVE SYNC ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
+// ── LIVE SYNC ─────────────────────────────────────────────────
 function applyVisUpdate(newVis) {
   // Ignore no-op updates (e.g. the SSE echo of our own save).
   if (JSON.stringify(newVis) === JSON.stringify(locVisibility)) return;
@@ -1466,14 +1466,53 @@ function applyVisUpdate(newVis) {
   loadHexGridFromVis();
 }
 
+// ─── SSE HEALTH WATCHDOG ─────────────────────────────────────────────────────
+// The tunnel can leave a stream OPEN but silently stop forwarding it: no error
+// fires, so the browser never auto-reconnects and the atlas quietly goes stale.
+// Silence is the only reliable signal — the server pings every 20s, so hearing
+// nothing for much longer than that means the stream is dead. isHealthy() also
+// lets the polling fallbacks back off while SSE is provably working.
+window.SSEHealth = window.SSEHealth || (function () {
+  const SILENCE_MS = 50000;   // > 2 missed 20s heartbeats
+  let lastBeat = Date.now();
+  return {
+    beat() { lastBeat = Date.now(); },
+    sinceBeat() { return Date.now() - lastBeat; },
+    isHealthy() { return (Date.now() - lastBeat) < SILENCE_MS; },
+    SILENCE_MS
+  };
+})();
+
 // SSE for real players via Cloudflare: server pushes visibility updates.
 function connectAtlasSSE() {
+  let _retry = 0;
+  let _watchdog = null;
+
   function attach() {
     const es = new EventSource('/api/events/nocropi_atlas');
+
+    // Exponential backoff + jitter: a fixed retry means every open tab hammers a
+    // downed tunnel forever, and tabs sync into simultaneous bursts.
+    const reconnect = () => {
+      if (_watchdog) { clearInterval(_watchdog); _watchdog = null; }
+      try { es.close(); } catch (_) {}
+      const wait = Math.min(30000, 1000 * Math.pow(2, _retry++)) + Math.random() * 1000;
+      setTimeout(attach, wait);
+    };
+
+    es.onopen = () => { _retry = 0; SSEHealth.beat(); };
+
+    // Force a reconnect when the stream goes silent past the heartbeat window.
+    _watchdog = setInterval(() => {
+      if (SSEHealth.sinceBeat() > SSEHealth.SILENCE_MS) reconnect();
+    }, 10000);
+
     es.onmessage = e => {
+      SSEHealth.beat();   // any traffic (incl. pings) proves liveness
       try {
         const d = JSON.parse(e.data);
-        // Dice rolls ride this stream ג†’ hand to the roll log and STOP (never fall through to
+        if (d.type === 'ping') return;   // heartbeat only
+        // Dice rolls ride this stream → hand to the roll log and STOP (never fall through to
         // reload / visibility handling, which would otherwise refresh the whole atlas).
         if (d.type === 'dr-roll') { if (window.DiceRoll) DiceRoll.ingestRemote(d.entry); return; }
         if (d.type === 'dr-reload') { location.reload(); return; }  // live-reload rides this stream
@@ -1482,12 +1521,12 @@ function connectAtlasSSE() {
         }
       } catch(_) {}
     };
-    es.onerror = () => { es.close(); setTimeout(attach, 3000); };
+    es.onerror = () => reconnect();
   }
   attach();
 }
 
-// Polling fallback ג€” guards against Cloudflare SSE buffering / dropped connections.
+// Polling fallback — guards against Cloudflare SSE buffering / dropped connections.
 function startAtlasPolling() {
   if (IS_DM) return;
   const tick = async () => {
@@ -1512,7 +1551,7 @@ function startAtlasPolling() {
 // Cross-tab / cross-device sync now happens through the database via SSE
 // (connectAtlasSSE), so no localStorage listener is needed.
 
-// ג”€ג”€ LOCATION MAP UPLOAD ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
+// ── LOCATION MAP UPLOAD ───────────────────────────────────────
 function startMapUpload(locId) {
   pendingUploadLocId = locId;
   const inp = document.getElementById('map-img-upload');
@@ -1538,7 +1577,7 @@ document.getElementById('map-img-upload').addEventListener('change', async funct
 
   // Show uploading feedback
   const btn = document.querySelector(`[data-addmap="${locId}"]`);
-  if (btn) { btn.textContent = 'Uploadingג€¦'; btn.disabled = true; }
+  if (btn) { btn.textContent = 'Uploading…'; btn.disabled = true; }
 
   const dataUrl = await new Promise(resolve => {
     const reader = new FileReader();
@@ -1561,7 +1600,7 @@ document.getElementById('map-img-upload').addEventListener('change', async funct
       savePositionsToServer();
     }
 
-    // Mark town as having content so the sidebar shows "Open Town Map ג†’"
+    // Mark town as having content so the sidebar shows "Open Town Map →"
     townsWithContent.add(townSlug);
     buildSidebar();
 
@@ -1588,7 +1627,7 @@ if (window.caches) { caches.keys().then(ks => ks.forEach(k => caches.delete(k)))
 <div id="plkModal">
   <div class="plk-backdrop" id="plkBackdrop"></div>
   <div class="plk-dialog">
-    <div class="plk-head"><span class="plk-title">Player Links</span><button type="button" class="plk-close" id="plkClose">ג•</button></div>
+    <div class="plk-head"><span class="plk-title">Player Links</span><button type="button" class="plk-close" id="plkClose">✕</button></div>
     <div class="plk-body">
       <div class="plk-status" id="plkStatus"></div>
       <table class="plk-table">
